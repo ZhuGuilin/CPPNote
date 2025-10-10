@@ -22,8 +22,7 @@ inline void asm_volatile_pause() {
 #elif (defined(__arm__) && !(__ARM_ARCH < 7))
 	asm volatile("yield");
 #elif defined(__powerpc64__)
-	//asm volatile("or 27,27,27");
-	asm volatile("lwsync"); //	r1 ½¨Òé
+	asm volatile("lwsync");
 #endif
 }
 
@@ -38,6 +37,7 @@ constexpr uint32_t MAX_PAUSE_COUNT = 500;
 constexpr uint32_t MAX_YIELD_COUNT = 1000;
 #endif
 
+constexpr uint32_t MAX_COUNT = MAX_YIELD_COUNT * 2;
 constexpr std::chrono::microseconds SLEEP_MICRO{ 200 };
 
 class MS_Lock : public Observer
@@ -48,49 +48,46 @@ public:
 	{
 	public:
 
-		bool trylock() noexcept
-		{
-			return std::atomic_exchange_explicit(&_lock, true, std::memory_order_acq_rel) == false;
-		}
-
-		void lock() noexcept
-		{
+		void lock() noexcept {
 			uint32_t count = 0;
-			while (!trylock()) {
-				do {
-					count++;
-					if (count <= MAX_PAUSE_COUNT) {
-						asm_volatile_pause();
-					}
-					else if (count <= MAX_YIELD_COUNT) {
+			while (flag.test_and_set(std::memory_order_acquire)) {
+				if (count < MAX_COUNT) {
+					++count;
+				}
+
+				if (count <= MAX_PAUSE_COUNT) {
+					asm_volatile_pause();
+				}
+				else if (count <= MAX_YIELD_COUNT) {
 #if defined(__arm__) && !(__ARM_ARCH < 7)
-						asm volatile("yield" ::: "memory");
+					asm volatile("yield" ::: "memory");
 #else
-						std::this_thread::yield();
+					std::this_thread::yield();
 #endif
-					}
-					else {
-						auto backoff = std::chrono::microseconds(1 << (count - MAX_YIELD_COUNT) / 10);
-						std::this_thread::sleep_for(std::min(backoff, SLEEP_MICRO));
-					}
-				} while (_lock.load(std::memory_order_acquire)); 
+				}
+				else {
+					auto backoff = std::chrono::microseconds(1 << (count - MAX_YIELD_COUNT) / 10);
+					std::this_thread::sleep_for(std::min(backoff, SLEEP_MICRO));
+					std::cout << "Spinlock wait count : " << count << std::endl;
+				}
 			}
 		}
-
-		void unlock() noexcept
-		{
-			_lock.store(false, std::memory_order_release);
+		void unlock() noexcept {
+			flag.clear(std::memory_order_release);
+		}
+		bool trylock() noexcept {
+			return !flag.test_and_set(std::memory_order_acquire);
 		}
 
 	private:
 
-		std::atomic_bool _lock{ false };
+		alignas(64) std::atomic_flag flag = ATOMIC_FLAG_INIT;
 	};
 
 	void Test() override
 	{
 		std::cout << " ===== SpinLock Bgein =====" << std::endl;
-		
+
 		auto size = sizeof(std::atomic<bool>);
 		size = sizeof(std::atomic<uint8>);
 		size = sizeof(std::atomic_flag);

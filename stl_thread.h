@@ -31,65 +31,43 @@ class STL_Thread : public Observer
 {
 public:
 
-	class ThreadGuard
-	{
-		std::thread _t;
-
-	public:
-
-		explicit ThreadGuard(std::thread&& t) : _t(std::move(t))
-		{
-			if (!_t.joinable())
-				throw std::logic_error("no thread!");
-		}
-
-		virtual ~ThreadGuard()
-		{
-			if (_t.joinable())
-				_t.join();
-		}
-
-		ThreadGuard(const ThreadGuard&) = delete;
-		ThreadGuard(ThreadGuard&&) = default;
-		ThreadGuard& operator=(const ThreadGuard&) = delete;
-		ThreadGuard& operator=(ThreadGuard&&) = delete;
-	};
-
 	class ThreadGuardJoin
 	{
-		std::thread _t;
-
 	public:
 
-		explicit ThreadGuardJoin(std::thread&& t) : _t(std::move(t))
+		explicit ThreadGuardJoin(std::thread&& t) noexcept(false)
+			: _t(std::move(t))
 		{
-			std::cout << "Construct ThreadGuardJoin" << std::endl;
 			if (!_t.joinable())
 				throw std::logic_error("no thread!");
+		}
+
+		ThreadGuardJoin(ThreadGuardJoin&& other) noexcept
+			: _t(std::move(other._t))
+		{
 		}
 
 		virtual ~ThreadGuardJoin()
 		{
 			if (_t.joinable())
-			{
-				std::cout << "Destruct ThreadGuardJoin, Call join()" << std::endl;
 				_t.join();
-			}
 		}
 
 		ThreadGuardJoin(const ThreadGuardJoin&) = delete;
-		ThreadGuardJoin(ThreadGuardJoin&&) = default;
 		ThreadGuardJoin& operator=(const ThreadGuardJoin&) = delete;
-		ThreadGuardJoin& operator=(ThreadGuardJoin&&) = delete;
+		ThreadGuardJoin& operator=(ThreadGuardJoin&& other) = delete;
+
+	private:
+
+		std::thread _t;
 	};
 
 	class ThreadGuardDetach
 	{
-		std::thread _t;
-
 	public:
 
-		explicit ThreadGuardDetach(std::thread&& t) : _t(std::move(t))
+		explicit ThreadGuardDetach(std::thread&& t) noexcept(false)
+			: _t(std::move(t))
 		{
 			std::cout << "Construct ThreadGuardDetach, Call detach()" << std::endl;
 			if (!_t.joinable())
@@ -98,19 +76,15 @@ public:
 			_t.detach();
 		}
 
-		virtual ~ThreadGuardDetach()
-		{
-			if (_t.joinable())
-			{
-				std::cout << "Destruct ThreadGuardDetach, Call join()" << std::endl;
-				_t.join();
-			}
-		}
-
+		~ThreadGuardDetach() = default;
 		ThreadGuardDetach(const ThreadGuardDetach&) = delete;
-		ThreadGuardDetach(ThreadGuardDetach&&) = default;
+		ThreadGuardDetach(ThreadGuardDetach&&) noexcept = default;
 		ThreadGuardDetach& operator=(const ThreadGuardDetach&) = delete;
 		ThreadGuardDetach& operator=(ThreadGuardDetach&&) = delete;
+
+	private:
+
+		std::thread _t;
 	};
 
 	class ThreadManager		//	简单线程创建的测试
@@ -217,8 +191,8 @@ public:
 			_threads.reserve(num_cpu);
 			for (int i = 0; i < num_cpu; i++)
 			{
-				_threads.emplace_back(std::thread([&]() {
-					while (!_stop.load())
+				_threads.emplace_back(std::thread([this]() {
+					while (true)
 					{
 						Task task;
 						{
@@ -234,20 +208,25 @@ public:
 							_tasks.pop();
 						}
 
-						task();
+						try {
+							task();
+						}
+						catch (const std::exception& e) {
+							std::cerr << "ThreadPool task exception: " << e.what() << std::endl;
+						}
 					}
 					}));
 			}
 		}
 
-		~ThreadPool() 
-		{ 
+		~ThreadPool()
+		{
 			if (!_stop.load())
-				Stop(); 
+				Stop();
 		}
 
 		std::atomic_bool _stop{ false };
-		std::vector<ThreadGuard> _threads;
+		std::vector<ThreadGuardJoin> _threads;
 
 		std::mutex _mutex;
 		std::condition_variable _condition;

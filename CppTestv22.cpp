@@ -42,6 +42,10 @@ int main()
 	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 	SetConsoleTextAttribute(hConsole, FOREGROUND_GREEN | FOREGROUND_INTENSITY);
 
+	using repr_type = std::uint8_t[16];
+	repr_type repr = {};
+	auto size = sizeof(repr_type);
+
     ObsMgr::instance().Run();
 
     std::cout << "按回车键退出... \n";
