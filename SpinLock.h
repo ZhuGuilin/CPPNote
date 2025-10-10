@@ -2,7 +2,6 @@
 
 #include <atomic>
 #include <thread>
-#include <iostream>
 
 #include "define.h"
 #include "Observer.h"
@@ -27,17 +26,17 @@ inline void asm_volatile_pause() {
 }
 
 #if  (defined(__x86_64__) || defined(_M_X64))
-constexpr uint32_t MAX_PAUSE_COUNT = 200;
-constexpr uint32_t MAX_YIELD_COUNT = 600;
+constexpr uint32_t MAX_PAUSE_COUNT{ 200 };
+constexpr uint32_t MAX_YIELD_COUNT{ 600 };
 #elif defined(__arm__)
-constexpr uint32_t MAX_PAUSE_COUNT = 400;
-constexpr uint32_t MAX_YIELD_COUNT = 800;
+constexpr uint32_t MAX_PAUSE_COUNT{ 400 };
+constexpr uint32_t MAX_YIELD_COUNT{ 800 };
 #else
-constexpr uint32_t MAX_PAUSE_COUNT = 500;
-constexpr uint32_t MAX_YIELD_COUNT = 1000;
+constexpr uint32_t MAX_PAUSE_COUNT{ 500 };
+constexpr uint32_t MAX_YIELD_COUNT{ 1000 };
 #endif
 
-constexpr uint32_t MAX_COUNT = MAX_YIELD_COUNT * 2;
+constexpr uint32_t MAX_COUNT{ MAX_YIELD_COUNT * 2 };
 constexpr std::chrono::microseconds SLEEP_MICRO{ 200 };
 
 class MS_Lock : public Observer
@@ -68,7 +67,6 @@ public:
 				else {
 					auto backoff = std::chrono::microseconds(1 << (count - MAX_YIELD_COUNT) / 10);
 					std::this_thread::sleep_for(std::min(backoff, SLEEP_MICRO));
-					std::cout << "Spinlock wait count : " << count << std::endl;
 				}
 			}
 		}
