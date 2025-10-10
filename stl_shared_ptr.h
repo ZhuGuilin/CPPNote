@@ -42,20 +42,10 @@ public:
 
 		explicit ThreadGuardDetach(std::thread&& t) : _t(std::move(t))
 		{
-			std::cout << "Construct ThreadGuardDetach, Call detach()" << std::endl;
 			if (!_t.joinable())
 				throw std::logic_error("no thread!");
 
 			_t.detach();
-		}
-
-		virtual ~ThreadGuardDetach()
-		{
-			if (_t.joinable())
-			{
-				std::cout << "Destruct ThreadGuardDetach, Call join()" << std::endl;
-				_t.join();
-			}
 		}
 
 		ThreadGuardDetach(const ThreadGuardDetach&) = delete;

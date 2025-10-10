@@ -6,6 +6,15 @@
 #include "SpinLock.h"
 #include "Observer.h"
 
+#define USE_MEMORY_POOL 1
+#define SPIN_LOCK 1
+
+#if SPIN_LOCK
+typedef MS_Lock::Spinlock LockType;
+#else
+typedef std::mutex LockType;
+#endif
+
 constexpr uint32_t BLOCK_SIZE = 128;
 
 class MemoryPool : public Observer
@@ -13,8 +22,6 @@ class MemoryPool : public Observer
 public:
 
 	typedef unsigned char Byte;
-	//typedef std::mutex LockType;
-	typedef MS_Lock::Spinlock LockType;
 
 	template <class T, uint32_t N = BLOCK_SIZE>
 	class SimplePool
@@ -113,7 +120,10 @@ public:
 		Byte	data[32];
 
 		MyStruct() = default;
-		MyStruct(int lv, int val) : level(lv), value(val) {}
+		MyStruct(int lv, int val) 
+			: level(lv), value(val), data{0} 
+		{
+		}
 		~MyStruct() {}
 	};
 
@@ -153,15 +163,16 @@ public:
 		std::size_t total{ 0 };
 		auto start = std::chrono::high_resolution_clock::now();
 		{
+			const int T_NUM = 4;
 			std::vector<ThreadGuard> works;
-			works.reserve(8);
-			for (int i = 0; i < 6; i++)
+			works.reserve(T_NUM);
+			for (int i = 0; i < T_NUM; i++)
 			{
 				works.emplace_back(std::thread([&pool, &total,i]()
 				{
 					for (int j = 0; j < 2000000; j++)
 					{
-#if 0
+#if USE_MEMORY_POOL
 						MyStruct* p = pool.malloc(i, j);
 						if (nullptr == p)
 						{
@@ -187,9 +198,15 @@ public:
 		}
 
 		auto end = std::chrono::high_resolution_clock::now();
-		std::cout << "MemoryPool 线程池测试 共耗时: "
+#if USE_MEMORY_POOL
+		std::cout << "MemoryPool 内存池测试 共耗时: "
 			<< std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
 			<< " ms" << "Total : " << total << std::endl;
+#else
+		std::cout << "::new 共耗时: "
+			<< std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
+			<< " ms" << "Total : " << total << std::endl;
+#endif
 
 		std::cout << " ===== MemoryPool End =====" << std::endl;
 	}

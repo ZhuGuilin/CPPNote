@@ -69,7 +69,6 @@ public:
 		explicit ThreadGuardDetach(std::thread&& t) noexcept(false)
 			: _t(std::move(t))
 		{
-			std::cout << "Construct ThreadGuardDetach, Call detach()" << std::endl;
 			if (!_t.joinable())
 				throw std::logic_error("no thread!");
 
@@ -259,8 +258,8 @@ public:
 		特性		   join()		detach()
 		阻塞行为|  阻塞调用线程	立即返回
 		线程状态|  等待结束		后台运行
-		资源回收|  join时回收	    自动回收
-		结果获取|  可直接获取	    需其他机制
+		资源回收|  join时回收	自动回收
+		结果获取|  可直接获取	需其他机制
 		使用风险|  死锁风险		悬挂引用风险
 		适用场景|  需要同步		独立任务
 		*/
@@ -286,7 +285,7 @@ public:
 		ThreadManager::instance().Stop();
 
 		ThreadPool::instance();
-		std::string msg = "Processing  ";
+		std::string msg = "***Processing  ";
 		auto taskres = ThreadPool::instance().Submit([&msg](int id) {
 			msg += "task =>  " + std::to_string(id);
 			std::this_thread::sleep_for(1s);

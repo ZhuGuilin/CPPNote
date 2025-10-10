@@ -32,19 +32,16 @@ namespace
 	STL_Future stl_future;
 	MemoryPool memory_pool;
 	STL_Bind_Invoke stl_bind_invoke;
-	//STL_Thread stl_thread;
+	STL_Thread stl_thread;
 	MS_Lock ms_lock;
 	STL_Coroutine stl_coroutine;
 }
 
 int main()
 {
+	//	修改控制台字体颜色
 	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 	SetConsoleTextAttribute(hConsole, FOREGROUND_GREEN | FOREGROUND_INTENSITY);
-
-	using repr_type = std::uint8_t[16];
-	repr_type repr = {};
-	auto size = sizeof(repr_type);
 
     ObsMgr::instance().Run();
 
