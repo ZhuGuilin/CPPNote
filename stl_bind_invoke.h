@@ -71,6 +71,7 @@ public:
 	{
 		std::cout << " ===== STL_Bind_Invoke Bgein =====" << std::endl;
 		Fa fa;
+		(void)fa;	//	±ÜÃâ±àÒëÆ÷¾¯¸æ
 #if 0
 		caller_bind(printf, " caller_bind \n");
 		caller_invoke(printf, " caller_invoke \n");

@@ -43,6 +43,10 @@ class MS_Lock : public Observer
 {
 public:
 
+	//	简单的自旋锁实现 (不支持递归锁)	
+	//	除非临界区非常短使用自旋锁能带来确定的收益，否则不建议使用自旋锁
+	//	std::mutex在高争用时会使用自旋锁+阻塞的方式来提高性能
+	//	考虑使用无锁数据结构替代锁
 	class Spinlock
 	{
 	public:
@@ -85,11 +89,8 @@ public:
 	void Test() override
 	{
 		std::cout << " ===== SpinLock Bgein =====" << std::endl;
-
-		auto size = sizeof(std::atomic<bool>);
-		size = sizeof(std::atomic<uint8>);
-		size = sizeof(std::atomic_flag);
-
+		Spinlock slock;
+		std::lock_guard<Spinlock> lock(slock);
 		std::cout << " ===== SpinLock End =====" << std::endl;
 	}
 

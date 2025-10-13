@@ -1,7 +1,7 @@
 #include <iostream>
 #include "Observer.h"
 
-
+// 通过继承Observer类，自动注册到ObsMgr单例中 方便统一管理和调用测试
 Observer::Observer()
 {
 	ObsMgr::instance().Attach(this);
