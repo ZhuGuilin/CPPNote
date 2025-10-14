@@ -1,5 +1,6 @@
 ﻿
 //	引入需要测试的文件
+#include <windows.h>
 
 #include "stl_vector.h"
 #include "stl_map.h"
@@ -18,7 +19,7 @@
 #include "MemoryPool.h"
 #include "SpinLock.h"
 
-#include <windows.h>
+#include "NetWork.h"
 
 namespace
 {
@@ -35,6 +36,7 @@ namespace
 	STL_Thread stl_thread;
 	MS_Lock ms_lock;
 	STL_Coroutine stl_coroutine;
+	NetWork network;
 }
 
 int main()

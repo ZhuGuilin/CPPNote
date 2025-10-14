@@ -97,7 +97,7 @@ public:
 			//	通过配置获取线程数量
 			//	...
 			using namespace std::chrono_literals;
-			const int num_cpu = std::max(1u, std::thread::hardware_concurrency()) / 2;
+			const int num_cpu = max(1u, std::thread::hardware_concurrency()) / 2;
 			_threads.reserve(num_cpu);
 			for (int i = 0; i < num_cpu; i++)
 			{
@@ -186,7 +186,7 @@ public:
 			//	通过配置获取线程数量
 			//	...
 			using namespace std::chrono_literals;
-			const int num_cpu = std::max(1u, std::thread::hardware_concurrency()) / 2;
+			const int num_cpu = max(1u, std::thread::hardware_concurrency()) / 2;
 			_threads.reserve(num_cpu);
 			for (int i = 0; i < num_cpu; i++)
 			{

@@ -70,7 +70,7 @@ public:
 				}
 				else {
 					auto backoff = std::chrono::microseconds(1 << (count - MAX_YIELD_COUNT) / 10);
-					std::this_thread::sleep_for(std::min(backoff, SLEEP_MICRO));
+					std::this_thread::sleep_for(min(backoff, SLEEP_MICRO));
 				}
 			}
 		}

@@ -89,7 +89,7 @@ public:
 
 		inline bool expand()
 		{
-			const uint32_t size = std::max(BLOCK_SIZE, N);
+			const uint32_t size = max(BLOCK_SIZE, N);
 			MemoryNode* block = static_cast<MemoryNode*>(::operator new(
 				sizeof(MemoryNode) * size, std::align_val_t{ alignof(MemoryNode) }));
 			if (nullptr == block)
