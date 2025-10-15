@@ -82,7 +82,7 @@ public:
 
 		void Bind(const std::string& ip, const uint16_t port);
 		void Listen(int backlog = SOMAXCONN);
-		std::unique_ptr<Socket> Accept();
+		std::shared_ptr<Socket> Accept();
 
 		void AsyncConnect(const std::string& host, const uint16_t port,
 			std::function<void(std::error_code)>&& handler);

@@ -196,7 +196,7 @@ void NetWork::Socket::Listen(int backlog)
 	}
 }
 
-std::unique_ptr<NetWork::Socket> NetWork::Socket::Accept()
+std::shared_ptr<NetWork::Socket> NetWork::Socket::Accept()
 {
 	if (_type != Type::TCP)
 	{
@@ -213,7 +213,7 @@ std::unique_ptr<NetWork::Socket> NetWork::Socket::Accept()
 				  << ::WSAGetLastError() << std::endl;
 		return nullptr;
 	}
-	return std::make_unique<Socket>(_service, client_socket, AF_INET, Type::TCP);
+	return std::make_shared<Socket>(_service, client_socket, AF_INET, Type::TCP);
 }
 
 void NetWork::Socket::AsyncConnect(const std::string& host, const uint16_t port,
@@ -435,30 +435,31 @@ void NetWork::Test()
 	server.Listen();
 	std::cout << "Server is listening on port 18080..." << std::endl;
 	// 异步接受连接
-	auto accept_handler = [&](std::unique_ptr<Socket> client) {
+	std::shared_ptr<Socket> client_backup;
+	auto accept_handler = [&](std::shared_ptr<Socket> client) {
 		if (!client) return;
 		
 		// 异步读取数据
 		char buffer[1024];
-		auto f = [&buffer](std::error_code ec, size_t bytes) {
+		auto f = [&](std::error_code ec, size_t bytes) {
 			if (!ec && bytes > 0) {
 				printf("Received %zu bytes: %.*s\n",
 					bytes, static_cast<int>(bytes), buffer);
 
 				// 回显数据
-				/*
 				client->AsyncWrite(buffer, bytes,
 					[](std::error_code ec, size_t bytes) {
 						if (!ec) {
 							printf("Sent %zu bytes\n", bytes);
 						}
-				});*/
+				});
 			}
 			else {
 				std::cout << "Client disconnected or read error: " << ec.message() << std::endl;
 		}};
 
 		client->AsyncRead(buffer, sizeof(buffer), std::move(f));
+		client_backup = client; // 保持客户端对象的生命周期
 	};
 
 	// 接受第一个连接
