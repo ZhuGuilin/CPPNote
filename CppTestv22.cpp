@@ -25,15 +25,15 @@ namespace
 {
 	STL_Vector stl_vector;
 	STL_UniquePtr stl_uniqueptr;
-	STL_SharedPtr stl_sharedptr;
+	//STL_SharedPtr stl_sharedptr;
 	STL_Set stl_set;
 	STL_Queue stl_queue;
 	STL_Map stl_map;
 	STL_List stl_list;
 	STL_Future stl_future;
-	MemoryPool memory_pool;
+	//MemoryPool memory_pool;
 	STL_Bind_Invoke stl_bind_invoke;
-	STL_Thread stl_thread;
+	//STL_Thread stl_thread;
 	MS_Lock ms_lock;
 	STL_Coroutine stl_coroutine;
 	NetWork network;

@@ -27,64 +27,64 @@ void worker2()
 	std::cout << "worker2 tid : " << std::this_thread::get_id() << "  thread_specific : " << thread_specific << std::endl;
 }
 
-class STL_Thread : public Observer
+class ThreadGuardJoin
 {
 public:
 
-	class ThreadGuardJoin
+	explicit ThreadGuardJoin(std::thread&& t) noexcept(false)
+		: _t(std::move(t))
 	{
-	public:
+		if (!_t.joinable())
+			throw std::logic_error("no thread!");
+	}
 
-		explicit ThreadGuardJoin(std::thread&& t) noexcept(false)
-			: _t(std::move(t))
-		{
-			if (!_t.joinable())
-				throw std::logic_error("no thread!");
-		}
-
-		ThreadGuardJoin(ThreadGuardJoin&& other) noexcept
-			: _t(std::move(other._t))
-		{
-		}
-
-		virtual ~ThreadGuardJoin()
-		{
-			if (_t.joinable())
-				_t.join();
-		}
-
-		ThreadGuardJoin(const ThreadGuardJoin&) = delete;
-		ThreadGuardJoin& operator=(const ThreadGuardJoin&) = delete;
-		ThreadGuardJoin& operator=(ThreadGuardJoin&& other) = delete;
-
-	private:
-
-		std::thread _t;
-	};
-
-	class ThreadGuardDetach
+	ThreadGuardJoin(ThreadGuardJoin&& other) noexcept
+		: _t(std::move(other._t))
 	{
-	public:
+	}
 
-		explicit ThreadGuardDetach(std::thread&& t) noexcept(false)
-			: _t(std::move(t))
-		{
-			if (!_t.joinable())
-				throw std::logic_error("no thread!");
+	virtual ~ThreadGuardJoin()
+	{
+		if (_t.joinable())
+			_t.join();
+	}
 
-			_t.detach();
-		}
+	ThreadGuardJoin(const ThreadGuardJoin&) = delete;
+	ThreadGuardJoin& operator=(const ThreadGuardJoin&) = delete;
+	ThreadGuardJoin& operator=(ThreadGuardJoin&& other) = delete;
 
-		~ThreadGuardDetach() = default;
-		ThreadGuardDetach(const ThreadGuardDetach&) = delete;
-		ThreadGuardDetach(ThreadGuardDetach&&) noexcept = default;
-		ThreadGuardDetach& operator=(const ThreadGuardDetach&) = delete;
-		ThreadGuardDetach& operator=(ThreadGuardDetach&&) = delete;
+private:
 
-	private:
+	std::thread _t;
+};
 
-		std::thread _t;
-	};
+class ThreadGuardDetach
+{
+public:
+
+	explicit ThreadGuardDetach(std::thread&& t) noexcept(false)
+		: _t(std::move(t))
+	{
+		if (!_t.joinable())
+			throw std::logic_error("no thread!");
+
+		_t.detach();
+	}
+
+	~ThreadGuardDetach() = default;
+	ThreadGuardDetach(const ThreadGuardDetach&) = delete;
+	ThreadGuardDetach(ThreadGuardDetach&&) noexcept = default;
+	ThreadGuardDetach& operator=(const ThreadGuardDetach&) = delete;
+	ThreadGuardDetach& operator=(ThreadGuardDetach&&) = delete;
+
+private:
+
+	std::thread _t;
+};
+
+class STL_Thread : public Observer
+{
+public:
 
 	class ThreadManager		//	简单线程创建的测试
 	{
