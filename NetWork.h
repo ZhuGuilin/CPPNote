@@ -10,6 +10,8 @@ class NetWork : public Observer
 {
 public:
 	
+	class Service;
+
 	struct Operation : public OVERLAPPED 
 	{
 		Operation() noexcept
@@ -20,6 +22,21 @@ public:
 		virtual ~Operation() = default;
 
 		virtual void Complete(const std::error_code& ec, std::size_t bytes) = 0;
+	};
+
+	struct AcceptOperation : public Operation
+	{
+		std::function<void(const std::error_code, std::size_t)> handler;
+		AcceptOperation(std::function<void(std::error_code, std::size_t)> h)
+			: handler(std::move(h))
+		{
+		}
+
+		void Complete(const std::error_code& ec, std::size_t bytes) noexcept override
+		{
+			if (handler)
+				handler(ec, bytes);
+		}
 	};
 
 	struct ConnectOperation : public Operation 
@@ -67,23 +84,25 @@ public:
 		}
 	};
 
-	class Service;
 	class Socket
 	{
 	public:
 
 		enum class Type { TCP, UDP };
 		explicit Socket(Service& service, int af, Type type);
-		explicit Socket(Service& service, SOCKET s, int af, Type type);
+		//explicit Socket(Service& service, SOCKET s, int af, Type type);
 		~Socket();
 
+		inline SOCKET Handle() const noexcept { return _socket; }
 		inline bool IsOpen() const noexcept { return _socket != SOCKET_ERROR; }
-		inline bool IsLive() const noexcept { return _live; }
+
+		void Reset();
 
 		void Bind(const std::string& ip, const uint16_t port);
 		void Listen(int backlog = SOMAXCONN);
-		std::shared_ptr<Socket> Accept();
 
+		std::shared_ptr<Socket> AsyncAccept(void* buffer, size_t size, 
+			std::function<void(std::error_code, size_t)>&& handler);
 		void AsyncConnect(const std::string& host, const uint16_t port,
 			std::function<void(std::error_code)>&& handler);
 		void AsyncRead(void* buffer, size_t size,
@@ -102,13 +121,13 @@ public:
 		Type	 _type{ Type::TCP };	// 套接字类型 TCP/UDP
 		Service& _service;				// 关联的服务对象
 
-		bool     _live{ false };		// 启用状态
-
+		std::unique_ptr<AcceptOperation>  _accept_op;
 		std::unique_ptr<ConnectOperation> _connect_op;
-		std::unique_ptr<ReadOperation> _read_op;
-		std::unique_ptr<WriteOperation> _write_op;
+		std::unique_ptr<ReadOperation>    _read_op;
+		std::unique_ptr<WriteOperation>   _write_op;
 
 		void* _connectEx{ nullptr };	// ConnectEx 函数指针
+		void* _acceptEx{ nullptr };		// AcceptEx 函数指针
 	};
 
 	class Service
