@@ -270,6 +270,12 @@ std::shared_ptr<NetWork::Socket> NetWork::Socket::AsyncAccept(void* buffer, size
 				  << ::WSAGetLastError() << std::endl;
 		return nullptr;
 	}
+
+	::setsockopt(client->Handle(),
+					SOL_SOCKET,
+					SO_UPDATE_ACCEPT_CONTEXT,
+					reinterpret_cast<const char*>(&_socket),
+					sizeof(_socket));
 	
 	return client;
 }
@@ -488,6 +494,7 @@ void NetWork::Test()
 	std::cout << "WriteOperation sizeof :" << sizeof(WriteOperation) << std::endl;
 	std::cout << "Scoket sizeof :" << sizeof(Socket) << std::endl;
 	std::cout << "Service sizeof :" << sizeof(Service) << std::endl;
+	std::cout << "WSABUF sizeof :" << sizeof(WSABUF) << std::endl;
 
 	WinSockInitializer wsaInit;
 	(void)wsaInit;	//	±ÜÃâ±àÒëÆ÷¾¯¸æ
