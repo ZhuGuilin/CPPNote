@@ -3,6 +3,7 @@
 #include <functional>
 #include <handleapi.h>
 #include <minwinbase.h>
+
 #include "Observer.h"
 
 
@@ -84,6 +85,13 @@ public:
 		}
 	};
 
+	typedef struct
+	{
+		unsigned long	len;
+		char FAR* buf;
+
+	} BSWSABUF;
+
 	class Socket
 	{
 	public:
@@ -95,6 +103,9 @@ public:
 
 		inline SOCKET Handle() const noexcept { return _socket; }
 		inline bool IsOpen() const noexcept { return _socket != SOCKET_ERROR; }
+
+		inline void SetConnectPtr();
+		inline void SetAcceptPtr();
 
 		void Reset();
 
@@ -120,6 +131,7 @@ public:
 		SOCKET	 _socket{ INVALID_SOCKET };
 		Type	 _type{ Type::TCP };	// 套接字类型 TCP/UDP
 		Service& _service;				// 关联的服务对象
+		BSWSABUF _wsabuf;
 
 		std::unique_ptr<AcceptOperation>  _accept_op;
 		std::unique_ptr<ConnectOperation> _connect_op;
