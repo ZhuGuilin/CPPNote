@@ -164,7 +164,7 @@ NetWork::Acceptor::Acceptor(Service& service, const address_v4& addr, const std:
 		goto __Construct_Failed;
 	}
 	
-	_opt = std::make_unique<Operation>(Operation::OPType::ACCEPT, [this](std::error_code ec, std::size_t size) {
+	_opt = new Operation([this](std::error_code ec, std::size_t size) {
 		this->OnAcceptComplete(ec, size);
 		});
 
@@ -189,19 +189,17 @@ void NetWork::Acceptor::AsyncAccept()
 {
 	auto client = std::make_shared<NetWork::TcpSocket>();
 	_sockets.push_back(client);
-	//_opt->owner = client;
 
 	DWORD dwRecvNumBytes = 0;
 	auto ret = reinterpret_cast<LPFN_ACCEPTEX>(_lpfnAcceptEx)(
-		_listener,
-		client->handle(),
-		_readBuffer.data(),
-		0,
-		sizeof(sockaddr_in) + 16,
-		sizeof(sockaddr_in) + 16,
-		&dwRecvNumBytes,
-		reinterpret_cast<OVERLAPPED*>(_opt.get())
-	);
+				_listener,
+				client->handle(),
+				_readBuffer.data(),
+				0,
+				sizeof(sockaddr_in) + 16,
+				sizeof(sockaddr_in) + 16,
+				&dwRecvNumBytes,
+				&_opt->overlapped);
 
 	auto last_error = ::WSAGetLastError();
 	if (!ret && last_error != WSA_IO_PENDING)
@@ -238,6 +236,7 @@ bool NetWork::Acceptor::ConfigureListeningSocket()
 		return false;
 	}
 
+	//	启用条件接受
 	int conditional = 1;
 	if (::setsockopt(_listener, SOL_SOCKET, SO_CONDITIONAL_ACCEPT, (char*)&conditional, sizeof(conditional)) == SOCKET_ERROR)
 	{
@@ -254,6 +253,7 @@ bool NetWork::Acceptor::ConfigureListeningSocket()
 			<< ::WSAGetLastError() << std::endl;
 	}
 
+	//	禁用 Nagle 算法
 	int noDelay = 1;
 	if (::setsockopt(_listener, IPPROTO_TCP, TCP_NODELAY, (char*)&noDelay, sizeof(noDelay)) == SOCKET_ERROR)
 	{
@@ -279,6 +279,7 @@ void NetWork::Acceptor::OnAcceptComplete(std::error_code ec, std::size_t size)
 					<< ::WSAGetLastError() << std::endl;
 	}
 
+	//	允许地址重用
 	int reuseAddr = 1;
 	if (::setsockopt(_sockets[0]->handle(),
 		SOL_SOCKET,
@@ -349,11 +350,11 @@ NetWork::TcpSocket::TcpSocket()
 		goto __Construct_Failed;
 	}
 
-	_readOpt = std::make_unique<Operation>(Operation::OPType::READ, [this](std::error_code ec, std::size_t size) {
+	_readOpt = new Operation([this](std::error_code ec, std::size_t size) {
 		this->OnReadComplete(ec, size);
 		});
 
-	_sendOpt = std::make_unique<Operation>(Operation::OPType::SEND, [this](std::error_code ec, std::size_t size) {
+	_sendOpt = new Operation([this](std::error_code ec, std::size_t size) {
 		this->OnSendComplete(ec, size);
 		});
 
@@ -401,7 +402,7 @@ void NetWork::TcpSocket::AsyncRead()
 {
 	int error = 0;
 	int len = sizeof(error);
-	if (::getsockopt(_socket, SOL_SOCKET, SO_ERROR, (char*)&error, &len) == SOCKET_ERROR)
+	if (::getsockopt(_socket, SOL_SOCKET, SO_TYPE, (char*)&error, &len) == SOCKET_ERROR)
 	{
 		std::cout << "NetWork::TcpSocket::AsyncRead => getsockopt() failed! error : "
 					<< ::WSAGetLastError() << std::endl;
@@ -414,7 +415,7 @@ void NetWork::TcpSocket::AsyncRead()
 						1,
 						&dwRecved,
 						&dwFlags,
-						_readOpt.get(),
+						&_readOpt->overlapped,
 						nullptr);
 	int err = ::WSAGetLastError();
 	if (result == SOCKET_ERROR && err != WSA_IO_PENDING)
@@ -823,7 +824,7 @@ void NetWork::Service::Post(Operation* op) noexcept
 		return;
 	}
 
-	if (!::PostQueuedCompletionStatus(_iocp, 0, 0, op))
+	if (!::PostQueuedCompletionStatus(_iocp, 0, 0, &op->overlapped))
 	{
 		//	失败了, op需要存储
 		std::cerr << "NetWork::Service::post => PostQueuedCompletionStatus() failed! error : "
@@ -854,7 +855,8 @@ void NetWork::Service::run()
 	BOOL ok;
 	DWORD bytes_transferred = 0;
 	ULONG_PTR completionKey = 0;
-	LPOVERLAPPED overlapped = 0;
+	//LPOVERLAPPED overlapped = 0;
+	Operation* op = nullptr;
 	DWORD last_error = 0;
 
 	while (!_stopped.load())
@@ -863,7 +865,8 @@ void NetWork::Service::run()
 		ok = ::GetQueuedCompletionStatus(_iocp,
 										&bytes_transferred,
 										&completionKey,
-										&overlapped,
+										//&overlapped,
+										(LPOVERLAPPED*)&op,
 										INFINITE);
 		last_error = ::GetLastError();
 		/*std::cout << "GetQueuedCompletionStatus => ok : " << ok
@@ -875,12 +878,13 @@ void NetWork::Service::run()
 		if (_stopped.load())
 			break;
 
+		//	退出消息
 		if (completionKey == 0)
 			break;
 
-		if (overlapped)
+		if (op)
 		{
-			Operation* op = reinterpret_cast<Operation*>(overlapped);
+			//auto op = (Operation*)overlapped;
 			op->complete(ok ? std::error_code()
 								: std::error_code(static_cast<int>(last_error), std::system_category()),
 				bytes_transferred);
