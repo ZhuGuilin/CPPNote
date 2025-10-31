@@ -226,7 +226,7 @@ public:
 		void shutdown() noexcept;
 
 		void AsyncConnect(address_v4&& addr, const std::uint16_t port,
-			std::function<void(std::error_code)>&& handler);
+			std::function<void(std::error_code)>&& complete);
 		void AsyncRead();
 		void AsyncSend();
 
@@ -258,7 +258,6 @@ public:
 		static constexpr std::uint8_t State_Open = 0x0;
 		static constexpr std::uint8_t State_Closing = 0x1;
 		static constexpr std::uint8_t State_Closed = 0x2;
-
 		std::atomic<std::uint8_t> _state;
 	};
 
