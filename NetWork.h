@@ -11,87 +11,258 @@ class NetWork : public Observer
 {
 public:
 	
-	class Service;
-
-	struct Operation : public OVERLAPPED 
+	typedef struct
 	{
-		Operation() noexcept
+		std::uint64_t len;
+		std::int8_t*  buf;
+	} MSWSABUF;
+
+	struct MessageBuffer
+	{
+		typedef std::vector<std::uint8_t> BufferType;
+		typedef std::vector<std::uint8_t>::size_type SizeType;
+
+		MessageBuffer()
+			: _storage(4096)
 		{
-			std::memset(static_cast<OVERLAPPED*>(this), 0, sizeof(OVERLAPPED));
+		}
+
+		explicit MessageBuffer(SizeType size)
+			: _storage(size)
+		{
+		}
+
+		MessageBuffer(MessageBuffer&& right) noexcept 
+			: _wpos(right._wpos)
+			, _rpos(right._rpos)
+			, _storage(std::move(right).transfer())
+		{
+		}
+
+		MessageBuffer& operator=(MessageBuffer&& right) noexcept
+		{
+			if (this != &right)
+			{
+				_wpos = right._wpos;
+				_rpos = right._rpos;
+				_storage = std::move(right).transfer();
+			}
+
+			return *this;
+		}
+
+		MessageBuffer(MessageBuffer const&) = default;
+		MessageBuffer& operator=(MessageBuffer const&) = default;
+		~MessageBuffer() = default;
+
+		inline std::uint8_t* data() noexcept { return _storage.data(); }
+		inline const std::uint8_t* data() const noexcept { return _storage.data(); }
+		inline std::uint8_t* write_ptr() noexcept { return _storage.data() + _wpos; }
+		inline const std::uint8_t* write_ptr() const noexcept { return _storage.data() + _wpos; }
+		inline std::uint8_t* read_ptr() noexcept { return _storage.data() + _rpos; }
+		inline const std::uint8_t* read_ptr() const noexcept { return _storage.data() + _rpos; }
+		inline std::size_t size() const noexcept { return _storage.size(); }
+		inline void reset() noexcept { _rpos = 0; _wpos = 0; }
+		inline void resize(const SizeType size) noexcept { _storage.resize(size); }
+		inline SizeType write_size() const noexcept { return _storage.size() - _wpos; }
+		inline SizeType read_size() const noexcept { return _wpos - _rpos; }
+
+		void write(const void* data, const SizeType size) noexcept
+		{
+			if (write_size() < size)
+				_storage.resize(_wpos + size);
+
+			std::memcpy(_storage.data() + _wpos, data, size);
+			_wpos += size;
+		}
+
+		SizeType read(void* data, SizeType size) noexcept
+		{
+			if (read_size() < size)
+				size = read_size();
+
+			std::memcpy(data, _storage.data() + _rpos, size);
+			_rpos += size;
+			return size;
+		}
+
+		[[nodiscard]]
+		BufferType&& transfer()
+		{
+			reset();
+			return std::move(_storage);
+		}
+
+	private:
+
+		SizeType	_rpos{ 0 };
+		SizeType	_wpos{ 0 };
+		BufferType  _storage;
+	};
+
+	class TcpSocket;
+	struct Operation : public OVERLAPPED
+	{
+		enum class OPType { ACCEPT, CONNECT, READ, SEND };
+		typedef std::function<void(std::error_code, std::size_t)> CompletionHandler;
+
+		explicit Operation(const OPType opt, CompletionHandler&& fn) noexcept
+			: type(opt), complete(std::move(fn))
+		{
+			std::memset(this, 0, sizeof(OVERLAPPED));
 		}
 
 		virtual ~Operation() = default;
 
-		virtual void Complete(const std::error_code& ec, std::size_t bytes) = 0;
+		OPType	type;
+		CompletionHandler complete;
 	};
 
-	struct AcceptOperation : public Operation
+	class address_v4
 	{
-		std::function<void(const std::error_code, std::size_t)> handler;
-		AcceptOperation(std::function<void(std::error_code, std::size_t)> h)
-			: handler(std::move(h))
+	public:
+
+		explicit address_v4(std::uint8_t addr[4]) noexcept;
+		explicit address_v4(std::uint32_t addr) noexcept;
+		explicit address_v4(std::string_view addr) noexcept;
+		~address_v4() = default;
+
+		address_v4(const address_v4& other) noexcept
+			: _addr(other._addr)
 		{
 		}
 
-		void Complete(const std::error_code& ec, std::size_t bytes) noexcept override
+		address_v4(address_v4&& other) noexcept
+			: _addr(other._addr)
 		{
-			if (handler)
-				handler(ec, bytes);
 		}
+
+		address_v4& operator=(const address_v4& other) noexcept
+		{
+			_addr = other._addr;
+			return *this;
+		}
+
+		address_v4& operator=(address_v4&& other) noexcept
+		{
+			_addr = other._addr;
+			return *this;
+		}
+
+		inline static address_v4 any() noexcept
+		{	//	0.0.0.0
+			return address_v4(0x00u);
+		}
+
+		inline static address_v4 loopback() noexcept
+		{	//	127.0.0.1
+			return address_v4(0x7F000001u);
+		}
+
+		inline static address_v4 broadcast() noexcept
+		{	//	255.255.255.255
+			return address_v4(0xFFFFFFFFu);
+		}
+		
+		inline std::uint32_t to_uint() const noexcept 
+		{ 
+			return ::ntohl(_addr.S_un.S_addr);
+		}
+
+		inline std::string to_string() const noexcept;
+
+	private:
+
+		in_addr _addr;
 	};
 
-	struct ConnectOperation : public Operation 
+	class Service;
+	class Acceptor
 	{
-		std::function<void(const std::error_code)> handler;
-		ConnectOperation(std::function<void(std::error_code)> h)
-			: handler(std::move(h)) 
-		{
-		}
+	public:
 
-		void Complete(const std::error_code& ec, std::size_t bytes) noexcept override
-		{
-			if (handler) 
-				handler(ec);
-		}
+		explicit Acceptor(Service& service, const address_v4& addr, const std::uint32_t port);
+		virtual ~Acceptor();
+
+		void AsyncAccept();
+		void shutdown() noexcept;
+
+		inline bool isInvalid() const noexcept { return _listener == INVALID_SOCKET; }
+		inline bool isOpen() const noexcept { return !_closed.load(); }
+
+		Acceptor(const Acceptor&) = delete;
+		Acceptor(Acceptor&&) = delete;
+		Acceptor& operator=(const Acceptor&) = delete;
+		Acceptor& operator=(Acceptor&&) = delete;
+
+		void OnAcceptComplete(std::error_code ec, std::size_t size);
+
+	private:
+
+		bool ConfigureListeningSocket();
+		bool Bind();
+
+
+		SOCKET	_listener{ INVALID_SOCKET };
+		void*	_lpfnAcceptEx{ nullptr };
+
+		address_v4 _addr;
+		std::uint32_t _port{ 0 };
+
+		Service& _service;
+		std::unique_ptr<Operation> _opt;
+
+		MessageBuffer _readBuffer;
+		std::atomic<bool> _closed;
 	};
 
-	struct ReadOperation : public Operation 
+	class TcpSocket : public std::enable_shared_from_this<TcpSocket>
 	{
-		std::function<void(const std::error_code, size_t)> handler;
-		ReadOperation(std::function<void(std::error_code, std::size_t)> h)
-			: handler(std::move(h)) 
-		{
-		}
+	public:
 
-		void Complete(const std::error_code& ec, std::size_t bytes) noexcept override
-		{
-			if (handler) 
-				handler(ec, bytes);
-		}
+		explicit TcpSocket();
+		virtual ~TcpSocket();
+
+		void shutdown() noexcept;
+
+		void AsyncConnect(address_v4&& addr, const std::uint16_t port,
+			std::function<void(std::error_code)>&& handler);
+		void AsyncRead();
+		void AsyncSend();
+
+		inline SOCKET handle() const noexcept { return _socket; }
+		inline bool isOpen() const noexcept { return _state.load() == State_Closed; }
+
+		TcpSocket(TcpSocket const& other) = delete;
+		TcpSocket(TcpSocket&& other) = delete;
+		TcpSocket& operator=(TcpSocket const& other) = delete;
+		TcpSocket& operator=(TcpSocket&& other) = delete;
+
+		void OnConnectComplete(std::error_code ec, std::size_t size);
+		void OnReadComplete(std::error_code ec, std::size_t size);
+		void OnSendComplete(std::error_code ec, std::size_t size);
+
+	private:
+
+		SOCKET	_socket{ INVALID_SOCKET };
+		void* _lpfnConnectEx{ nullptr };
+		
+		std::unique_ptr<Operation> _readOpt;
+		std::unique_ptr<Operation> _sendOpt;
+
+		MSWSABUF _wsabuf{ 0, nullptr };
+		address_v4	_remoteAddress;
+		MessageBuffer _readBuffer;
+		MessageBuffer _sendBuffer;
+
+		static constexpr std::uint8_t State_Open = 0x0;
+		static constexpr std::uint8_t State_Closing = 0x1;
+		static constexpr std::uint8_t State_Closed = 0x2;
+
+		std::atomic<std::uint8_t> _state;
 	};
 
-	struct WriteOperation : public Operation 
-	{
-		std::function<void(const std::error_code, size_t)> handler;
-		WriteOperation(std::function<void(std::error_code, std::size_t)> h)
-			: handler(std::move(h)) 
-		{
-		}
-
-		void Complete(const std::error_code& ec, std::size_t bytes) override
-		{
-			if (handler) 
-				handler(ec, bytes);
-		}
-	};
-
-	typedef struct
-	{
-		unsigned long	len;
-		char FAR* buf;
-
-	} BSWSABUF;
-
+#if 0
 	class Socket
 	{
 	public:
@@ -112,6 +283,8 @@ public:
 		void Bind(const std::string& ip, const uint16_t port);
 		void Listen(int backlog = SOMAXCONN);
 
+		void UpdateSocket(SOCKET client_sock);
+
 		std::shared_ptr<Socket> AsyncAccept(void* buffer, size_t size, 
 			std::function<void(std::error_code, size_t)>&& handler);
 		void AsyncConnect(const std::string& host, const uint16_t port,
@@ -131,16 +304,15 @@ public:
 		SOCKET	 _socket{ INVALID_SOCKET };
 		Type	 _type{ Type::TCP };	// 套接字类型 TCP/UDP
 		Service& _service;				// 关联的服务对象
-		BSWSABUF _wsabuf;
+		MSWSABUF _wsabuf{ 0, nullptr };
 
-		std::unique_ptr<AcceptOperation>  _accept_op;
-		std::unique_ptr<ConnectOperation> _connect_op;
-		std::unique_ptr<ReadOperation>    _read_op;
-		std::unique_ptr<WriteOperation>   _write_op;
+		std::unique_ptr<Operation>  _op;
 
 		void* _connectEx{ nullptr };	// ConnectEx 函数指针
 		void* _acceptEx{ nullptr };		// AcceptEx 函数指针
 	};
+
+#endif
 
 	class Service
 	{

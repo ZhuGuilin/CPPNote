@@ -20,6 +20,7 @@
 #include "SpinLock.h"
 
 #include "NetWork.h"
+#include "net_asio.h"
 
 namespace
 {
@@ -37,6 +38,7 @@ namespace
 	MS_Lock ms_lock;
 	STL_Coroutine stl_coroutine;
 	NetWork network;
+	net_asio asio_network;
 }
 
 int main()

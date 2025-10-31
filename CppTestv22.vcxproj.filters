@@ -24,6 +24,9 @@
     <ClCompile Include="NetWork.cpp">
       <Filter>头文件</Filter>
     </ClCompile>
+    <ClCompile Include="net_asio.cpp">
+      <Filter>头文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Observer.h">
@@ -72,6 +75,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="NetWork.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="net_asio.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
