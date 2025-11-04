@@ -252,58 +252,6 @@ public:
 		std::atomic<std::uint8_t> _state;
 	};
 
-#if 0
-	class Socket
-	{
-	public:
-
-		enum class Type { TCP, UDP };
-		explicit Socket(Service& service, int af, Type type);
-		//explicit Socket(Service& service, SOCKET s, int af, Type type);
-		~Socket();
-
-		inline SOCKET Handle() const noexcept { return _socket; }
-		inline bool IsOpen() const noexcept { return _socket != SOCKET_ERROR; }
-
-		inline void SetConnectPtr();
-		inline void SetAcceptPtr();
-
-		void Reset();
-
-		void Bind(const std::string& ip, const uint16_t port);
-		void Listen(int backlog = SOMAXCONN);
-
-		void UpdateSocket(SOCKET client_sock);
-
-		std::shared_ptr<Socket> AsyncAccept(void* buffer, size_t size, 
-			std::function<void(std::error_code, size_t)>&& handler);
-		void AsyncConnect(const std::string& host, const uint16_t port,
-			std::function<void(std::error_code)>&& handler);
-		void AsyncRead(void* buffer, size_t size,
-			std::function<void(std::error_code, size_t)>&& handler);
-		void AsyncWrite(const void* data, size_t size,
-			std::function<void(std::error_code, size_t)>&& handler);
-
-		Socket(const Socket&) = delete;
-		Socket(Socket&&) = default;
-		Socket& operator=(const Socket&) = delete;
-		Socket& operator=(Socket&&) = default;
-
-	private:
-
-		SOCKET	 _socket{ INVALID_SOCKET };
-		Type	 _type{ Type::TCP };	// 套接字类型 TCP/UDP
-		Service& _service;				// 关联的服务对象
-		MSWSABUF _wsabuf{ 0, nullptr };
-
-		std::unique_ptr<Operation>  _op;
-
-		void* _connectEx{ nullptr };	// ConnectEx 函数指针
-		void* _acceptEx{ nullptr };		// AcceptEx 函数指针
-	};
-
-#endif
-
 	class Service
 	{
 	public:
