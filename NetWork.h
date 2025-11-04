@@ -105,14 +105,6 @@ public:
 	{
 		typedef std::function<void(std::error_code, std::size_t)> CompletionHandler;
 
-		explicit Operation(CompletionHandler&& fn) noexcept
-			: complete(std::move(fn))
-		{
-			std::memset(&overlapped, 0, sizeof(OVERLAPPED));
-		}
-
-		virtual ~Operation() = default;
-
 		OVERLAPPED	overlapped;
 		CompletionHandler complete;
 	};
@@ -209,8 +201,7 @@ public:
 		std::uint32_t _port{ 0 };
 
 		Service& _service;
-		//std::unique_ptr<Operation> _opt;
-		Operation* _opt{ nullptr };
+		std::unique_ptr<Operation> _opt;
 
 		MessageBuffer _readBuffer;
 		std::atomic<bool> _closed;
@@ -247,10 +238,8 @@ public:
 		SOCKET	_socket{ INVALID_SOCKET };
 		void* _lpfnConnectEx{ nullptr };
 		
-		//std::unique_ptr<Operation> _readOpt;
-		//std::unique_ptr<Operation> _sendOpt;
-		Operation* _readOpt{ nullptr };
-		Operation* _sendOpt{ nullptr };
+		std::unique_ptr<Operation> _readOpt;
+		std::unique_ptr<Operation> _sendOpt;
 
 		MSWSABUF _wsabuf{ 0, nullptr };
 		address_v4	_remoteAddress;

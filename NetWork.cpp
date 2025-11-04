@@ -12,7 +12,7 @@
 GUID WSAID_AcceptEx = WSAID_ACCEPTEX;
 GUID WSAID_ConnectEx = WSAID_CONNECTEX;
 
-#if NTDDI_VERSION >= NTDDI_WIN8
+#if 0//NTDDI_VERSION >= NTDDI_WIN8		//	这里会导致WSARecv报10083的错误
 constexpr DWORD WSA_FLAGS = WSA_FLAG_REGISTERED_IO | WSA_FLAG_OVERLAPPED;
 #else
 constexpr DWORD WSA_FLAGS = WSA_FLAG_OVERLAPPED;
@@ -164,9 +164,10 @@ NetWork::Acceptor::Acceptor(Service& service, const address_v4& addr, const std:
 		goto __Construct_Failed;
 	}
 	
-	_opt = new Operation([this](std::error_code ec, std::size_t size) {
+	_opt = std::make_unique<Operation>();
+	_opt->complete = [this](std::error_code ec, std::size_t size) {
 		this->OnAcceptComplete(ec, size);
-		});
+		};
 
 	std::cout << "NetWork::Acceptor::Acceptor => Acceptor created! \n listening on => "
 				<< _addr.to_string() << ":" << _port << "\n listen socket => " << _listener <<std::endl;
@@ -191,6 +192,7 @@ void NetWork::Acceptor::AsyncAccept()
 	_sockets.push_back(client);
 
 	DWORD dwRecvNumBytes = 0;
+	std::memset(&_opt->overlapped, 0, sizeof(OVERLAPPED));
 	auto ret = reinterpret_cast<LPFN_ACCEPTEX>(_lpfnAcceptEx)(
 				_listener,
 				client->handle(),
@@ -341,7 +343,7 @@ NetWork::TcpSocket::TcpSocket()
 			<< ::WSAGetLastError() << std::endl;
 		goto __Construct_Failed;
 	}
-
+	
 	//	设置发送缓冲区为0，禁用缓冲区(减少延迟, 友好短消息)
 	if (::setsockopt(_socket, SOL_SOCKET, SO_SNDBUF, (char*)&nZero, sizeof(nZero)) == SOCKET_ERROR)
 	{
@@ -350,14 +352,16 @@ NetWork::TcpSocket::TcpSocket()
 		goto __Construct_Failed;
 	}
 
-	_readOpt = new Operation([this](std::error_code ec, std::size_t size) {
+	_readOpt = std::make_unique<Operation>();
+	_readOpt->complete = [this](std::error_code ec, std::size_t size) {
 		this->OnReadComplete(ec, size);
-		});
-
-	_sendOpt = new Operation([this](std::error_code ec, std::size_t size) {
+		};
+	
+	_sendOpt = std::make_unique<Operation>();
+	_sendOpt->complete = [this](std::error_code ec, std::size_t size) {
 		this->OnSendComplete(ec, size);
-		});
-
+		};
+	
 	_wsabuf.len = _readBuffer.size();
 	_wsabuf.buf = (int8_t*)_readBuffer.data();
 
@@ -410,6 +414,8 @@ void NetWork::TcpSocket::AsyncRead()
 
 	DWORD dwFlags = 0;
 	DWORD dwRecved = 0;
+	std::memset(&_readOpt->overlapped, 0, sizeof(OVERLAPPED));
+	::WSASetLastError(0);
 	int result = ::WSARecv(_socket,
 						(WSABUF*)&_wsabuf,
 						1,
