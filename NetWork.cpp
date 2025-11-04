@@ -447,6 +447,13 @@ void NetWork::TcpSocket::OnReadComplete(std::error_code ec, std::size_t size)
 {
 	std::cout << "NetWork::TcpSocket::OnReadComplete => Read completed with "
 		<< ec.message() << " bytes: " << size << " socket :" << _socket << std::endl;
+
+	//	¼ÌÐøÍ¶µÝ¶Á²Ù×÷
+	if (!ec)
+		this->AsyncRead();
+
+	std::string msg((char*)_readBuffer.data(), size);
+	std::cout << "NetWork::TcpSocket::OnReadComplete => Recv message: " << msg << std::endl;
 }
 
 void NetWork::TcpSocket::OnSendComplete(std::error_code ec, std::size_t size)
