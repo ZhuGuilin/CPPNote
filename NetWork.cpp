@@ -267,7 +267,7 @@ bool NetWork::Acceptor::ConfigureListeningSocket()
 	return true;
 }
 
-void NetWork::Acceptor::OnAcceptComplete(std::error_code ec, std::size_t size)
+void NetWork::Acceptor::OnAcceptComplete(const std::error_code& ec, const std::size_t size)
 {
 	std::cout << "Accept completed with " << ec.message() << " bytes: " << size << std::endl;
 	if (::setsockopt(
@@ -307,7 +307,7 @@ void NetWork::Acceptor::OnAcceptComplete(std::error_code ec, std::size_t size)
 	//	继续接受下一个连接
 	if (!_closed.load())
 	{ 
-		this->AsyncAccept();
+		AsyncAccept();
 	}
 }
 
@@ -338,6 +338,7 @@ NetWork::TcpSocket::TcpSocket()
 	, _remoteAddress(address_v4::any())
 {
 	int nZero = 0;
+	int noDelay = 1;
 	_socket = ::WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAGS);
 	if (_socket == INVALID_SOCKET)
 	{
@@ -351,6 +352,14 @@ NetWork::TcpSocket::TcpSocket()
 	{
 		std::cerr << "NetWork::TcpSocket::TcpSocket => setsockopt() SO_SNDBUF failed! error : "
 					<< ::WSAGetLastError() << std::endl;
+		goto __Construct_Failed;
+	}
+
+	//	禁用 Nagle 算法	
+	if (::setsockopt(_socket, IPPROTO_TCP, TCP_NODELAY, (char*)&noDelay, sizeof(noDelay)) == SOCKET_ERROR)
+	{
+		std::cerr << "NetWork::TcpSocket::TcpSocket => setsockopt() TCP_NODELAY failed! error : "
+			<< ::WSAGetLastError() << std::endl;
 		goto __Construct_Failed;
 	}
 
@@ -430,7 +439,7 @@ void NetWork::TcpSocket::AsyncRead()
 	{
 		std::cerr << "NetWork::TcpSocket::AsyncRead => WSARecv() failed! error : "
 					<< err << "	socket :" << _socket << std::endl;
-		this->OnReadComplete(std::error_code(err, std::system_category()), 0);
+		OnReadComplete(std::error_code(err, std::system_category()), 0);
 	}
 }
 
@@ -439,13 +448,13 @@ void NetWork::TcpSocket::AsyncSend()
 
 }
 
-void NetWork::TcpSocket::OnConnectComplete(std::error_code ec, std::size_t size)
+void NetWork::TcpSocket::OnConnectComplete(const std::error_code& ec, const std::size_t size)
 {
 	std::cout << "NetWork::TcpSocket::OnConnectComplete => Connect completed with "
 		<< ec.message() << " bytes: " << size << std::endl;
 }
 
-void NetWork::TcpSocket::OnReadComplete(std::error_code ec, std::size_t size)
+void NetWork::TcpSocket::OnReadComplete(const std::error_code& ec, const std::size_t size)
 {
 	std::cout << "NetWork::TcpSocket::OnReadComplete => Read completed with "
 		<< ec.message() << " bytes: " << size << " socket :" << _socket << std::endl;
@@ -453,21 +462,21 @@ void NetWork::TcpSocket::OnReadComplete(std::error_code ec, std::size_t size)
 	if (size == 0)
 	{
 		std::cout << "NetWork::TcpSocket::OnReadComplete => Connection closed by peer! socket :" << _socket << std::endl;
-		//this->shutdown();
+		//shutdown();
 		return;
 	}
 
 	//	继续投递读操作
 	if (_state == State_Open)
 	{
-		this->AsyncRead();
+		AsyncRead();
 	}
 
 	std::string msg((char*)_readBuffer.data(), size);
 	std::cout << "NetWork::TcpSocket::OnReadComplete => Recv message: " << msg << std::endl;
 }
 
-void NetWork::TcpSocket::OnSendComplete(std::error_code ec, std::size_t size)
+void NetWork::TcpSocket::OnSendComplete(const std::error_code& ec, const std::size_t size)
 {
 	std::cout << "NetWork::TcpSocket::OnSendComplete => Send completed with "
 		<< ec.message() << " bytes: " << size << " socket :" << _socket << std::endl;

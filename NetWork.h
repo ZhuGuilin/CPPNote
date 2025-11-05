@@ -103,7 +103,7 @@ public:
 	class TcpSocket;
 	struct Operation
 	{
-		typedef std::function<void(std::error_code, std::size_t)> CompletionHandler;
+		typedef std::function<void(const std::error_code&, const std::size_t)> CompletionHandler;
 
 		OVERLAPPED	overlapped;
 		CompletionHandler complete;
@@ -186,7 +186,7 @@ public:
 		Acceptor& operator=(const Acceptor&) = delete;
 		Acceptor& operator=(Acceptor&&) = delete;
 
-		void OnAcceptComplete(std::error_code ec, std::size_t size);
+		void OnAcceptComplete(const std::error_code& ec, const std::size_t size);
 
 	private:
 
@@ -223,15 +223,16 @@ public:
 
 		inline SOCKET handle() const noexcept { return _socket; }
 		inline bool isOpen() const noexcept { return _state.load() == State_Closed; }
+		MessageBuffer& GetReadBuffer() noexcept { return _readBuffer; }
 
 		TcpSocket(TcpSocket const& other) = delete;
 		TcpSocket(TcpSocket&& other) = delete;
 		TcpSocket& operator=(TcpSocket const& other) = delete;
 		TcpSocket& operator=(TcpSocket&& other) = delete;
 
-		void OnConnectComplete(std::error_code ec, std::size_t size);
-		void OnReadComplete(std::error_code ec, std::size_t size);
-		void OnSendComplete(std::error_code ec, std::size_t size);
+		void OnConnectComplete(const std::error_code& ec, const std::size_t size);
+		void OnReadComplete(const std::error_code& ec, const std::size_t size);
+		void OnSendComplete(const std::error_code& ec, const std::size_t size);
 
 	private:
 
@@ -264,7 +265,7 @@ public:
 		void Stop() noexcept;
 		void run();
 
-		HANDLE IocpHandle() const noexcept { return _iocp; }
+		HANDLE handle() const noexcept { return _iocp; }
 
 		Service(const Service&) = delete;
 		Service(Service&&) = delete;
