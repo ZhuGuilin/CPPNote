@@ -10,6 +10,7 @@
 #include "stl_unique_ptr.h"
 #include "stl_shared_ptr.h"
 #include "stl_thread.h"
+#include "stl_string.h"
 
 #include "stl_bind_invoke.h"
 #include "stl_future.h"
@@ -35,6 +36,7 @@ namespace
 	//MemoryPool memory_pool;
 	STL_Bind_Invoke stl_bind_invoke;
 	//STL_Thread stl_thread;
+	STL_String stl_string;
 	MS_Lock ms_lock;
 	STL_Coroutine stl_coroutine;
 	NetWork network;

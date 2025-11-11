@@ -80,5 +80,8 @@
     <ClInclude Include="net_asio.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="stl_string.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
