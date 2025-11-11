@@ -61,7 +61,7 @@ public:
 		inline const std::uint8_t* write_ptr() const noexcept { return _storage.data() + _wpos; }
 		inline std::uint8_t* read_ptr() noexcept { return _storage.data() + _rpos; }
 		inline const std::uint8_t* read_ptr() const noexcept { return _storage.data() + _rpos; }
-		inline std::size_t size() const noexcept { return _storage.size(); }
+		inline SizeType size() const noexcept { return _storage.size(); }
 		inline void reset() noexcept { _rpos = 0; _wpos = 0; }
 		inline void resize(const SizeType size) noexcept { _storage.resize(size); }
 		inline SizeType write_size() const noexcept { return _storage.size() - _wpos; }
@@ -84,6 +84,18 @@ public:
 			std::memcpy(data, _storage.data() + _rpos, size);
 			_rpos += size;
 			return size;
+		}
+
+		void normalize()
+		{
+			if (_rpos != 0)
+			{
+				if (_rpos != _wpos)
+					::memmove(_storage.data(), read_ptr(), read_size());
+
+				_wpos -= _rpos;
+				_rpos = 0;
+			}
 		}
 
 		[[nodiscard]]

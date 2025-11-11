@@ -1,6 +1,7 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <unordered_map>
 #include <WS2tcpip.h>
 #include <MSWSock.h>
 #include <windows.h>
@@ -586,9 +587,32 @@ void NetWork::Test()
 
 	std::cout << "std::error_code sizeof :" << sizeof(std::error_code) << std::endl;
 	std::cout << "Acceptor sizeof :" << sizeof(Acceptor) << std::endl;
+	std::cout << "Function sizeof :" << sizeof(Operation::CompletionHandler) << std::endl;
 	std::cout << "TcpSocket sizeof :" << sizeof(TcpSocket) << std::endl;
 	std::cout << "Operation sizeof :" << sizeof(Operation) << std::endl;
 	std::cout << "Service sizeof :" << sizeof(Service) << std::endl;
+
+	std::unordered_map<SOCKET, std::shared_ptr<NetWork::TcpSocket>> socket_map;
+	socket_map.reserve(4);
+	SOCKET s_del = INVALID_SOCKET;
+	{
+		auto sptr1 = std::make_shared<NetWork::TcpSocket>();
+		socket_map.insert({ sptr1->handle(), sptr1 });
+
+		auto sptr2 = std::make_shared<NetWork::TcpSocket>();
+		socket_map.insert({ sptr2->handle(), sptr2 });
+
+		auto sptr3 = std::make_shared<NetWork::TcpSocket>();
+		socket_map.insert({ sptr3->handle(), sptr3 });
+
+		s_del = sptr2->handle();
+	}
+	
+	auto it = socket_map.find(s_del);
+	if (it != socket_map.end())
+	{
+		socket_map.erase(it);
+	}
 
 	NetWork::Service service;
 	Acceptor acceptor(service, NetWork::address_v4::any(), 8086);
