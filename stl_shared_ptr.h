@@ -1,6 +1,6 @@
 #pragma once
 
-#include <iostream>
+#include <print>
 #include <memory>
 #include <thread>
 #include <chrono>
@@ -65,7 +65,7 @@ public:
 		~node() 
 		{ 
 			data.reset();
-			std::cout << "destruct STL_SharedPtr::node." << std::endl;
+			std::print("destruct STL_SharedPtr::node.\n");
 		}
 
 		void Fn_call()
@@ -76,7 +76,7 @@ public:
 			ThreadGuardDetach t(std::thread([&]() {
 				using namespace std::chrono_literals;
 				std::this_thread::sleep_for(1.7s);
-				std::cout << "此时shared_ptr已经销毁，危险的引用 => data : " << *data << "   name : " << name << std::endl;
+				std::print("此时shared_ptr已经销毁，危险的引用 => data : {}, name : {}.\n", *data, name);
 				}));
 
 #else
@@ -84,7 +84,7 @@ public:
 			ThreadGuardDetach t1(std::thread([self = shared_from_this()]() {
 				using namespace std::chrono_literals;
 				std::this_thread::sleep_for(1.6s);
-				std::cout << "shared_ptr被安全转发进来，此时可以正常输出 => data : " << *(self->data) << "   name : " << self->name << std::endl;
+				std::print("shared_ptr被安全转发进来，此时可以正常输出 => data : {}, name : {}.\n", *(self->data), self->name);
 				}));
 #endif
 		}
@@ -92,7 +92,7 @@ public:
 
 	void Test() override
 	{
-		std::cout << " ===== STL_SharedPtr Bgein =====" << std::endl;
+		std::print(" ===== STL_SharedPtr Bgein =====\n");
 
 		{
 			std::shared_ptr<node> ptr = std::make_shared<node>(666, std::string("SharedPtr"));
@@ -101,6 +101,6 @@ public:
 			ptr2->Fn_call();
 		}
 
-		std::cout << " ===== STL_SharedPtr End =====" << std::endl;
+		std::print(" ===== STL_SharedPtr End =====\n");
 	}
 };

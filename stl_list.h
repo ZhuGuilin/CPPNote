@@ -1,6 +1,6 @@
 #pragma once
 
-#include <iostream>
+#include <print>
 #include <list>
 #include "Observer.h"
 
@@ -15,11 +15,11 @@ public:
 
 	void Test() override
 	{
-		std::cout << " ===== STL_List Bgein =====" << std::endl;
+		std::print(" ===== STL_List Bgein =====\n");
 
 		std::list<node> node_list;
 		node_list.push_back({ 1 });
 
-		std::cout << " ===== STL_List End =====" << std::endl;
+		std::print(" ===== STL_List End =====\n");
 	}
 };

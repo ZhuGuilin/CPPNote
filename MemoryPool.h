@@ -1,6 +1,6 @@
 #pragma once
 
-#include <iostream>
+#include <print>
 #include <memory>
 
 #include "SpinLock.h"
@@ -32,7 +32,7 @@ public:
 		{
 			if (!expand())
 			{
-				std::cerr << "MemoryPool::SimplePool::expand() failed!" << std::endl;
+				std::print("MemoryPool::SimplePool::expand() failed!\n");
 				throw std::bad_alloc();
 			}
 		}
@@ -51,7 +51,7 @@ public:
 		{
 			std::lock_guard<LockType> lock(_lock);
 			if (nullptr == _head && !expand()) {
-				std::cerr << "MemoryPool::SimplePool::malloc() failed!" << std::endl;
+				std::print("MemoryPool::SimplePool::malloc() failed!\n");
 				return nullptr;
 			}
 
@@ -153,12 +153,12 @@ public:
 #pragma optimize("", off)
 	void Test() override
 	{
-		std::cout << " ===== MemoryPool Bgein =====" << std::endl;
+		std::print(" ===== MemoryPool Bgein =====\n");
 		
 		SimplePool<MyStruct> pool;
-		std::cout << "sizeof std::string :" << sizeof(std::string) << std::endl;
-		std::cout << "sizeof MyStruct :	" << sizeof(MyStruct) << std::endl;
-		std::cout << "alignof MyStruct :" << alignof(MyStruct) << std::endl;
+		std::print("sizeof std::string : {}.\n", sizeof(std::string));
+		std::print("sizeof MyStruct : {}.\n", sizeof(MyStruct));
+		std::print("alignof MyStruct : {}.\n", alignof(MyStruct));
 		
 		std::size_t total{ 0 };
 		auto start = std::chrono::high_resolution_clock::now();
@@ -176,7 +176,7 @@ public:
 						MyStruct* p = pool.malloc(i, j);
 						if (nullptr == p)
 						{
-							std::cerr << "malloc failed!" << std::endl;
+							std::print("malloc failed! \n");
 							return;
 						}
 						total += (p->value & 0xffff);
@@ -185,7 +185,7 @@ public:
 						MyStruct* p = new MyStruct(i, j);
 						if (nullptr == p)
 						{
-							std::cerr << "malloc failed!" << std::endl;
+							std::print("malloc failed! \n");
 							return;
 						}
 						total += (p->value & 0xffff);
@@ -199,16 +199,14 @@ public:
 
 		auto end = std::chrono::high_resolution_clock::now();
 #if USE_MEMORY_POOL
-		std::cout << "MemoryPool 内存池测试 共耗时: "
-			<< std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
-			<< " ms" << "Total : " << total << std::endl;
+		std::print("MemoryPool 内存池测试 共耗时 : {}, Total : {}.\n",
+			std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count(), total);
 #else
-		std::cout << "::new 共耗时: "
-			<< std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
-			<< " ms" << "Total : " << total << std::endl;
+		std::print("::new 共耗时 : {}, Total : {}.\n",
+			std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count(), total);
 #endif
 
-		std::cout << " ===== MemoryPool End =====" << std::endl;
+		std::print(" ===== MemoryPool End =====\n");
 	}
 #pragma optimize("", on)
 };

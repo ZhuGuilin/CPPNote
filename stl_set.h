@@ -1,6 +1,6 @@
 #pragma once
 
-#include <iostream>
+#include <print>
 #include <set>
 #include "Observer.h"
 
@@ -10,11 +10,11 @@ public:
 
 	void Test() override
 	{
-		std::cout << " ===== STL_Coroutine Bgein =====" << std::endl;
+		std::print(" ===== STL_Coroutine Bgein =====\n");
 
 		std::set<int> set;
 		set.insert({ 1 });
 
-		std::cout << " ===== STL_Coroutine End =====" << std::endl;
+		std::print(" ===== STL_Coroutine End =====\n");
 	}
 };

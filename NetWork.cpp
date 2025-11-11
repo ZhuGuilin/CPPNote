@@ -1,4 +1,4 @@
-#include <iostream>
+#include <print>
 #include <thread>
 #include <chrono>
 #include <unordered_map>
@@ -145,8 +145,8 @@ NetWork::Acceptor::Acceptor(Service& service, const address_v4& addr, const std:
 	_listener = ::WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAGS);
 	if (_listener == INVALID_SOCKET)
 	{
-		std::cerr << "NetWork::Acceptor::Acceptor => WSASocket() failed! error : "
-			<< ::WSAGetLastError() << std::endl;
+		std::print("NetWork::Acceptor::Acceptor => WSASocket() failed! error : {}.\n",
+			::WSAGetLastError());
 		goto __Construct_Failed;
 	}
 
@@ -170,8 +170,8 @@ NetWork::Acceptor::Acceptor(Service& service, const address_v4& addr, const std:
 		this->OnAcceptComplete(ec, size);
 		};
 
-	std::cout << "NetWork::Acceptor::Acceptor => Acceptor created! \n listening on => "
-				<< _addr.to_string() << ":" << _port << "\n listen socket => " << _listener <<std::endl;
+	std::print("NetWork::Acceptor::Acceptor => Acceptor created! \n listening on => {}:{}\n listen socket => {}.\n",
+				_addr.to_string(), _port, _listener);
 	return;
 
 __Construct_Failed:
@@ -207,12 +207,12 @@ void NetWork::Acceptor::AsyncAccept()
 	auto last_error = ::WSAGetLastError();
 	if (!ret && last_error != WSA_IO_PENDING)
 	{
-		std::cerr << "NetWork::Socket::AsyncAccept => AcceptEx() failed! error : "
-			<< ::WSAGetLastError() << " client->handle :" << client->handle() << std::endl;
+		std::print("NetWork::Socket::AsyncAccept => AcceptEx() failed! error : {}, client socket : {}.\n",
+			::WSAGetLastError(), client->handle());
 	}
 	else
 	{
-		std::cout << "NetWork::Acceptor::AsyncAccept => AcceptEx() posted! socket => " << client->handle() << std::endl;
+		std::print("NetWork::Acceptor::AsyncAccept => AcceptEx() posted! socket => {}.\n", client->handle());
 	}
 }
 
@@ -234,8 +234,7 @@ bool NetWork::Acceptor::ConfigureListeningSocket()
 	int reuseAddr = 1;
 	if (::setsockopt(_listener, SOL_SOCKET, SO_REUSEADDR, (char*)&reuseAddr, sizeof(reuseAddr)) == SOCKET_ERROR)
 	{
-		std::cerr << "NetWork::Acceptor::Acceptor => setsockopt() SO_REUSEADDR failed! error : "
-			<< ::WSAGetLastError() << std::endl;
+		std::print("NetWork::Acceptor::Acceptor => setsockopt() SO_REUSEADDR failed! error : {}.\n", ::WSAGetLastError());
 		return false;
 	}
 
@@ -243,8 +242,7 @@ bool NetWork::Acceptor::ConfigureListeningSocket()
 	int conditional = 1;
 	if (::setsockopt(_listener, SOL_SOCKET, SO_CONDITIONAL_ACCEPT, (char*)&conditional, sizeof(conditional)) == SOCKET_ERROR)
 	{
-		std::cerr << "NetWork::Acceptor::Acceptor => setsockopt() SO_CONDITIONAL_ACCEPT failed! error : "
-			<< ::WSAGetLastError() << std::endl;
+		std::print("NetWork::Acceptor::Acceptor => setsockopt() SO_CONDITIONAL_ACCEPT failed! error : {}.\n", ::WSAGetLastError());
 	}
 
 	LINGER lingerOpt;
@@ -252,16 +250,14 @@ bool NetWork::Acceptor::ConfigureListeningSocket()
 	lingerOpt.l_linger = 30; // 最多等待30秒
 	if (::setsockopt(_listener, SOL_SOCKET, SO_LINGER, (char*)&lingerOpt, sizeof(lingerOpt)) == SOCKET_ERROR)
 	{
-		std::cerr << "NetWork::Acceptor::Acceptor => setsockopt() SO_LINGER failed! error : "
-			<< ::WSAGetLastError() << std::endl;
+		std::print("NetWork::Acceptor::Acceptor => setsockopt() SO_LINGER failed! error : {}.\n", ::WSAGetLastError());
 	}
 
 	//	禁用 Nagle 算法
 	int noDelay = 1;
 	if (::setsockopt(_listener, IPPROTO_TCP, TCP_NODELAY, (char*)&noDelay, sizeof(noDelay)) == SOCKET_ERROR)
 	{
-		std::cerr << "NetWork::Acceptor::Acceptor => setsockopt() TCP_NODELAY failed! error : "
-			<< ::WSAGetLastError() << std::endl;
+		std::print("NetWork::Acceptor::Acceptor => setsockopt() TCP_NODELAY failed! error : {}.\n", ::WSAGetLastError());
 		return false;
 	}
 
@@ -270,7 +266,7 @@ bool NetWork::Acceptor::ConfigureListeningSocket()
 
 void NetWork::Acceptor::OnAcceptComplete(const std::error_code& ec, const std::size_t size)
 {
-	std::cout << "Accept completed with " << ec.message() << " bytes: " << size << std::endl;
+	std::print("Accept completed with : {}, bytes : {}.\n", ec.message(), size);
 	if (::setsockopt(
 		_sockets[0]->handle(),
 		SOL_SOCKET,
@@ -278,8 +274,8 @@ void NetWork::Acceptor::OnAcceptComplete(const std::error_code& ec, const std::s
 		(char*)&_listener,
 		sizeof(_listener)) == SOCKET_ERROR)
 	{
-		std::cerr << "NetWork::Acceptor::OnAcceptComplete => setsockopt() SO_UPDATE_ACCEPT_CONTEXT failed! error : "
-					<< ::WSAGetLastError() << std::endl;
+		std::print("NetWork::Acceptor::OnAcceptComplete => setsockopt() SO_UPDATE_ACCEPT_CONTEXT failed! error : {}.\n",
+					::WSAGetLastError());
 	}
 
 	//	允许地址重用
@@ -290,16 +286,14 @@ void NetWork::Acceptor::OnAcceptComplete(const std::error_code& ec, const std::s
 		(char*)&reuseAddr,
 		sizeof(reuseAddr)) == SOCKET_ERROR)
 	{
-		std::cerr << "NetWork::Acceptor::Acceptor => setsockopt() SO_REUSEADDR failed! error : "
-			<< ::WSAGetLastError() << std::endl;
+		std::print("NetWork::Acceptor::Acceptor => setsockopt() SO_REUSEADDR failed! error : {}.\n", ::WSAGetLastError());
 	}
 
 	//	新连接关联 IOCP
 	if (!_service.RegisterHandle(reinterpret_cast<HANDLE>(_sockets[0]->handle()),
 		reinterpret_cast<ULONG_PTR>(_sockets[0].get())))
 	{
-		std::cerr << "NetWork::Acceptor::OnAcceptComplete => RegisterHandle() failed! error : "
-					<< ::WSAGetLastError() << std::endl;
+		std::print("NetWork::Acceptor::OnAcceptComplete => RegisterHandle() failed! error : {}.\n", ::WSAGetLastError());
 	}
 
 	//	新连接投递读操作
@@ -317,15 +311,13 @@ bool NetWork::Acceptor::Bind()
 	sockaddr_in addr = MakeAddress(_addr.to_string(), _port);
 	if (SOCKET_ERROR == ::bind(_listener, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)))
 	{
-		std::cerr << "NetWork::Acceptor::Bind => bind() failed! error : "
-					<< ::WSAGetLastError() << std::endl;
+		std::print("NetWork::Acceptor::Bind => bind() failed! error : {}.\n", ::WSAGetLastError());
 		return false;
 	}
 
 	if (SOCKET_ERROR == ::listen(_listener, SOMAXCONN))
 	{
-		std::cerr << "NetWork::Acceptor::Bind => listen() failed! error : "
-					<< ::WSAGetLastError() << std::endl;
+		std::print("NetWork::Acceptor::Bind => listen() failed! error : {}.\n", ::WSAGetLastError());
 		return false;
 	}
 
@@ -343,24 +335,21 @@ NetWork::TcpSocket::TcpSocket()
 	_socket = ::WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAGS);
 	if (_socket == INVALID_SOCKET)
 	{
-		std::cerr << "NetWork::Acceptor::Acceptor => WSASocket() failed! error : "
-			<< ::WSAGetLastError() << std::endl;
+		std::print("NetWork::Acceptor::Acceptor => WSASocket() failed! error : {}.\n", ::WSAGetLastError());
 		goto __Construct_Failed;
 	}
 	
 	//	设置发送缓冲区为0，禁用缓冲区(减少延迟, 友好短消息)
 	if (::setsockopt(_socket, SOL_SOCKET, SO_SNDBUF, (char*)&nZero, sizeof(nZero)) == SOCKET_ERROR)
 	{
-		std::cerr << "NetWork::TcpSocket::TcpSocket => setsockopt() SO_SNDBUF failed! error : "
-					<< ::WSAGetLastError() << std::endl;
+		std::print("NetWork::TcpSocket::TcpSocket => setsockopt() SO_SNDBUF failed! error : {}.\n", ::WSAGetLastError());
 		goto __Construct_Failed;
 	}
 
 	//	禁用 Nagle 算法	
 	if (::setsockopt(_socket, IPPROTO_TCP, TCP_NODELAY, (char*)&noDelay, sizeof(noDelay)) == SOCKET_ERROR)
 	{
-		std::cerr << "NetWork::TcpSocket::TcpSocket => setsockopt() TCP_NODELAY failed! error : "
-			<< ::WSAGetLastError() << std::endl;
+		std::print("NetWork::TcpSocket::TcpSocket => setsockopt() TCP_NODELAY failed! error : {}.\n", ::WSAGetLastError());
 		goto __Construct_Failed;
 	}
 
@@ -392,7 +381,7 @@ __Construct_Failed:
 
 NetWork::TcpSocket::~TcpSocket()
 {
-	std::cout << "NetWork::TcpSocket::~TcpSocket() socket :" << _socket << std::endl;
+	std::print("NetWork::TcpSocket::~TcpSocket() socket : {}.\n", _socket);
 	shutdown();
 }
 
@@ -420,8 +409,7 @@ void NetWork::TcpSocket::AsyncRead()
 	int len = sizeof(error);
 	if (::getsockopt(_socket, SOL_SOCKET, SO_TYPE, (char*)&error, &len) == SOCKET_ERROR)
 	{
-		std::cout << "NetWork::TcpSocket::AsyncRead => getsockopt() failed! error : "
-					<< ::WSAGetLastError() << std::endl;
+		std::print("NetWork::TcpSocket::AsyncRead => getsockopt() failed! error : {}.\n", ::WSAGetLastError());
 	}
 
 	DWORD dwFlags = 0;
@@ -438,8 +426,7 @@ void NetWork::TcpSocket::AsyncRead()
 	int err = ::WSAGetLastError();
 	if (result == SOCKET_ERROR && err != WSA_IO_PENDING)
 	{
-		std::cerr << "NetWork::TcpSocket::AsyncRead => WSARecv() failed! error : "
-					<< err << "	socket :" << _socket << std::endl;
+		std::print("NetWork::TcpSocket::AsyncRead => WSARecv() failed! error : {}, socket : {}.\n", err, _socket);
 		OnReadComplete(std::error_code(err, std::system_category()), 0);
 	}
 }
@@ -451,18 +438,18 @@ void NetWork::TcpSocket::AsyncSend()
 
 void NetWork::TcpSocket::OnConnectComplete(const std::error_code& ec, const std::size_t size)
 {
-	std::cout << "NetWork::TcpSocket::OnConnectComplete => Connect completed with "
-		<< ec.message() << " bytes: " << size << std::endl;
+	std::print("NetWork::TcpSocket::OnConnectComplete => Connect completed with : {}, bytes : {}.\n",
+			ec.message(), size);
 }
 
 void NetWork::TcpSocket::OnReadComplete(const std::error_code& ec, const std::size_t size)
 {
-	std::cout << "NetWork::TcpSocket::OnReadComplete => Read completed with "
-		<< ec.message() << " bytes: " << size << " socket :" << _socket << std::endl;
+	std::print("NetWork::TcpSocket::OnReadComplete => Read completed with : {}, bytes : {}, socket : {}.\n",
+			ec.message(), size, _socket);
 
 	if (size == 0)
 	{
-		std::cout << "NetWork::TcpSocket::OnReadComplete => Connection closed by peer! socket :" << _socket << std::endl;
+		std::print("NetWork::TcpSocket::OnReadComplete => Connection closed by peer! socket : {}.\n", _socket);
 		//shutdown();
 		return;
 	}
@@ -474,13 +461,13 @@ void NetWork::TcpSocket::OnReadComplete(const std::error_code& ec, const std::si
 	}
 
 	std::string msg((char*)_readBuffer.data(), size);
-	std::cout << "NetWork::TcpSocket::OnReadComplete => Recv message: " << msg << std::endl;
+	std::print("NetWork::TcpSocket::OnReadComplete => Recv message : {}.\n", msg);
 }
 
 void NetWork::TcpSocket::OnSendComplete(const std::error_code& ec, const std::size_t size)
 {
-	std::cout << "NetWork::TcpSocket::OnSendComplete => Send completed with "
-		<< ec.message() << " bytes: " << size << " socket :" << _socket << std::endl;
+	std::print("NetWork::TcpSocket::OnSendComplete => Send completed with : {}, bytes : {}, socket : {}.\n",
+			ec.message(), size, _socket);
 
 
 }
@@ -491,8 +478,7 @@ NetWork::Service::Service()
 	_iocp = ::CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0);
 	if (INVALID_HANDLE_VALUE == _iocp)
 	{
-		std::cerr << "NetWork::Service::Service => CreateIoCompletionPort() failed! error : "
-				  << ::GetLastError() << std::endl;
+		std::print("NetWork::Service::Service => CreateIoCompletionPort() failed! error : {}.\n", ::GetLastError());
 		throw std::system_error(std::error_code(static_cast<int>(::GetLastError()),
 								std::system_category()), "NetWork::Service::Service => CreateIoCompletionPort() failed!");
 	}
@@ -517,8 +503,7 @@ void NetWork::Service::Post(Operation* op) noexcept
 	if (!::PostQueuedCompletionStatus(_iocp, 0, 0, &op->overlapped))
 	{
 		//	失败了, op需要存储
-		std::cerr << "NetWork::Service::post => PostQueuedCompletionStatus() failed! error : "
-					<< ::GetLastError() << std::endl;
+		std::print("NetWork::Service::post => PostQueuedCompletionStatus() failed! error : {}.\n", ::GetLastError());
 
 	}
 }
@@ -527,8 +512,7 @@ bool NetWork::Service::RegisterHandle(HANDLE handle, ULONG_PTR key) noexcept
 {
 	if (::CreateIoCompletionPort(handle, _iocp, key, 0) == 0)
 	{
-		std::cerr << "NetWork::Service::associate_handle => CreateIoCompletionPort() failed! error : "
-				  << ::GetLastError() << std::endl;
+		std::print("NetWork::Service::associate_handle => CreateIoCompletionPort() failed! error : {}.\n", ::GetLastError());
 		return false;
 	}
 	return true;
@@ -572,8 +556,7 @@ void NetWork::Service::run()
 		}
 		else if (!ok)
 		{
-			std::cout << "NetWork::Service::run => GetQueuedCompletionStatus() failed! error : "
-				<< last_error << std::endl;
+			std::print("NetWork::Service::run => GetQueuedCompletionStatus() failed! error : {}.\n", last_error);
 		}
 	}
 }
@@ -581,16 +564,16 @@ void NetWork::Service::run()
 void NetWork::Test()
 {
 
-	std::cout << " ===== NetWork Bgein =====" << std::endl;
+	std::print(" ===== NetWork Bgein =====\n");
 	WinSockInitializer wsaInit;
 	(void)wsaInit;	//	避免编译器警告
 
-	std::cout << "std::error_code sizeof :" << sizeof(std::error_code) << std::endl;
-	std::cout << "Acceptor sizeof :" << sizeof(Acceptor) << std::endl;
-	std::cout << "Function sizeof :" << sizeof(Operation::CompletionHandler) << std::endl;
-	std::cout << "TcpSocket sizeof :" << sizeof(TcpSocket) << std::endl;
-	std::cout << "Operation sizeof :" << sizeof(Operation) << std::endl;
-	std::cout << "Service sizeof :" << sizeof(Service) << std::endl;
+	std::print("std::error_code sizeof : {}.\n", sizeof(std::error_code));
+	std::print("Acceptor sizeof : {}.\n", sizeof(Acceptor));
+	std::print("Function sizeof : {}.\n", sizeof(Operation::CompletionHandler));
+	std::print("TcpSocket sizeof : {}.\n", sizeof(TcpSocket));
+	std::print("Operation sizeof : {}.\n", sizeof(Operation));
+	std::print("Service sizeof : {}.\n", sizeof(Service));
 
 	std::unordered_map<SOCKET, std::shared_ptr<NetWork::TcpSocket>> socket_map;
 	socket_map.reserve(4);
@@ -620,10 +603,6 @@ void NetWork::Test()
 	service.run();
 
 #if 0
-	std::cout << "WriteOperation sizeof :" << sizeof(WriteOperation) << std::endl;
-	std::cout << "Scoket sizeof :" << sizeof(Socket) << std::endl;
-	std::cout << "Service sizeof :" << sizeof(Service) << std::endl;
-	std::cout << "WSABUF sizeof :" << sizeof(WSABUF) << std::endl;
 	
 	NetWork::Socket listener(service, AF_INET, NetWork::Socket::Type::TCP);
 	listener.Bind("0.0.0.0", 8086);
@@ -666,7 +645,7 @@ void NetWork::Test()
 	char Acceptbuf[1024];
 	std::size_t Acceptbuflen = sizeof(Acceptbuf);
 	std::shared_ptr<Socket> client = listener.AsyncAccept(Acceptbuf, Acceptbuflen, [&](std::error_code ec, size_t bytes) {
-		std::cout << "Accept completed with " << ec.message() << " bytes: " << bytes << std::endl;
+		std::print("Accept completed with " << ec.message() << " bytes: " << bytes << std::endl;
 		
 		listener.UpdateSocket(client->Handle());
 
@@ -687,8 +666,7 @@ void NetWork::Test()
 					});
 			}
 			else {
-				std::cout << "Client disconnected or read error: " << ec.message() 
-					<< "	socket :" << client->Handle() << std::endl;
+				std::print("Client disconnected or read error : {}, socket : {}.\n", ec.message(), client->Handle());
 			}
 		};
 
@@ -714,5 +692,5 @@ void NetWork::Test()
 		std::this_thread::sleep_for(50ms);
 	service.Stop();*/
 #endif
-	std::cout << " ===== NetWork End =====" << std::endl;
+	std::print(" ===== NetWork End =====\n");
 }

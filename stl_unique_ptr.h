@@ -1,6 +1,6 @@
 #pragma once
 
-#include <iostream>
+#include <print>
 #include <memory>
 #include <functional>
 //#include <vector>
@@ -20,18 +20,18 @@ public:
 
 		~node()
 		{
-			std::cout << "~node index: " << index << std::endl;
+			std::print("~node index : {}.\n", index);
 		}
 
 		void destroy() const noexcept
 		{
-			std::cout << "STL_UniquePtr delete function ." << std::endl;
+			std::print("STL_UniquePtr delete function .\n");
 		}
 	};
 
 	void Test() override
 	{
-		std::cout << " ===== STL_UniquePtr Bgein =====" << std::endl;
+		std::print(" ===== STL_UniquePtr Bgein =====\n");
 		{
 			std::unique_ptr<node> ptr = std::make_unique<node>();
 			//auto ptr1 = ptr;		//	err , 不支持复制
@@ -62,6 +62,6 @@ public:
 			ptrVec[0] = nullptr;
 		}
 
-		std::cout << " ===== STL_UniquePtr End =====" << std::endl;
+		std::print(" ===== STL_UniquePtr End =====\n");
 	}
 };

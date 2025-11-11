@@ -1,6 +1,6 @@
 #pragma once
 
-#include <iostream>
+#include <print>
 #include <memory>
 #include <functional>
 
@@ -69,7 +69,7 @@ public:
 
 	void Test() override
 	{
-		std::cout << " ===== STL_Bind_Invoke Bgein =====" << std::endl;
+		std::print(" ===== STL_Bind_Invoke Bgein =====\n");
 		Fa fa;
 		(void)fa;	//	避免编译器警告
 #if 0
@@ -95,9 +95,8 @@ public:
 			invoke(&Fa::Ytest, &fa, i, res);
 		}
 		auto end = std::chrono::high_resolution_clock::now();
-		std::cout << "invoke 耗时: "
-			<< std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
-			<< " ms" << "   res :" << res << std::endl;
+		std::print("invoke 耗时 : {} ms, res : {}.\n",
+			std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count(), res);
 
 		start = std::chrono::high_resolution_clock::now();
 		for (int i = 0; i < 50000000; i++)
@@ -106,14 +105,13 @@ public:
 			caller_invoke(&Fa::Ytest, &fa, i, res);
 		}
 		end = std::chrono::high_resolution_clock::now();
-		std::cout << "caller_invoke 耗时: "
-			<< std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
-			<< " ms" << "   res :" << res << std::endl;
+		std::print("caller_invoke 耗时 : {} ms, res : {}.\n"
+			std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count(), res);
 
 		//	测试结果： 使用 invoke 与 caller_invoke 无性能差异
 #endif
 
-		std::cout << " ===== STL_Bind_Invoke End =====" << std::endl;
+		std::print(" ===== STL_Bind_Invoke End =====\n");
 	}
 
 };

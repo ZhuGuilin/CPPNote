@@ -1,7 +1,7 @@
 #pragma once
 
 
-#include <iostream>
+#include <print>
 #include <thread>
 #include <chrono>
 #include <future>
@@ -16,7 +16,7 @@
 thread_local int thread_specific = 0;	// 每个线程独立副本
 void worker1(int id, std::string& str)
 {
-	std::cout << "worker1 args => id : " << id << "   str : " << str << std::endl;
+	std::print("worker1 args => id : {}, str : {}.\n", id, str);
 }
 
 void worker2()
@@ -24,7 +24,7 @@ void worker2()
 	for (int i = 0; i < 100; i++)
 		++thread_specific;
 
-	std::cout << "worker2 tid : " << std::this_thread::get_id() << "  thread_specific : " << thread_specific << std::endl;
+	std::print("worker2 tid : {}, thread_specific : {}.\n", std::this_thread::get_id(), thread_specific);
 }
 
 class ThreadGuardJoin
@@ -104,7 +104,7 @@ public:
 				_threads.emplace_back(std::thread([&]() {
 					while (!_stop.load())
 					{
-						std::cout << "ThreadManager working tid ：" << std::this_thread::get_id() << std::endl;
+						std::print("ThreadManager working tid ：{}.\n", std::this_thread::get_id());
 						std::this_thread::sleep_for(300ms);
 					}
 					}));
@@ -151,7 +151,7 @@ public:
 			_threads.clear();
 
 			if (!_tasks.empty())
-				std::cout << "ThreadPool Stop _tasks size：" << _tasks.size() << std::endl;
+				std::print("ThreadPool Stop _tasks size : {}.\n", _tasks.size());
 		}
 
 		//	提交任务
@@ -211,7 +211,7 @@ public:
 							task();
 						}
 						catch (const std::exception& e) {
-							std::cerr << "ThreadPool task exception: " << e.what() << std::endl;
+							std::print("ThreadPool task exception : {}.\n", e.what());
 						}
 					}
 					}));
@@ -235,10 +235,10 @@ public:
 	void Test() override
 	{
 		using namespace std::chrono_literals;
-		std::cout << " ===== STL_Thread Bgein =====" << std::endl;
+		std::print(" ===== STL_Thread Bgein =====\n");
 
-		std::cout << "cpu 逻辑处理器数量 ：" << std::thread::hardware_concurrency() << std::endl;
-		std::cout << "当前线程 Main Thread ID ：" << std::this_thread::get_id() << std::endl;
+		std::print("cpu 逻辑处理器数量 ：{}.\n", std::thread::hardware_concurrency());
+		std::print("当前线程 Main Thread ID ：{}.\n", std::this_thread::get_id());
 
 		std::this_thread::yield();	// 让出CPU
 
@@ -292,9 +292,9 @@ public:
 			return msg;
 			}, 1001);
 
-		std::cout << "ThreadPool test result : " << taskres.get() << std::endl;	//	get() 阻塞等待执行结果
+		std::print("ThreadPool test result : {}.\n", taskres.get());	//	get() 阻塞等待执行结果
 		ThreadPool::instance().Stop();
 
-		std::cout << " ===== STL_Thread End =====" << std::endl;
+		std::print(" ===== STL_Thread End =====\n");
 	}
 };

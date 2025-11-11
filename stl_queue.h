@@ -1,6 +1,6 @@
 #pragma once
 
-#include <iostream>
+#include <print>
 #include <queue>
 #include "Observer.h"
 
@@ -15,11 +15,11 @@ public:
 
 	void Test() override
 	{
-		std::cout << " ===== STL_Queue Bgein =====" << std::endl;
+		std::print(" ===== STL_Queue Bgein =====\n");
 
 		std::queue<node> node_que;
 		node_que.push({1});
 
-		std::cout << " ===== STL_Queue End =====" << std::endl;
+		std::print(" ===== STL_Queue End =====\n");
 	}
 };

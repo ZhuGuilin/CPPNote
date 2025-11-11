@@ -88,10 +88,12 @@ public:
 
 	void Test() override
 	{
-		std::cout << " ===== SpinLock Bgein =====" << std::endl;
+		std::print(" ===== SpinLock Bgein =====\n");
+
 		Spinlock slock;
 		std::lock_guard<Spinlock> lock(slock);
-		std::cout << " ===== SpinLock End =====" << std::endl;
+
+		std::print(" ===== SpinLock End =====\n");
 	}
 
 };

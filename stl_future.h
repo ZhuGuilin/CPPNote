@@ -1,6 +1,6 @@
 #pragma once
 
-#include <iostream>
+#include <print>
 #include <memory>
 #include <functional>
 #include <future>
@@ -13,10 +13,10 @@ public:
 
 	void Test() override
 	{
-		std::cout << " ===== STL_Future Bgein =====" << std::endl;
+		std::print(" ===== STL_Future Bgein =====\n");
 
 
-		std::cout << " ===== STL_Future End =====" << std::endl;
+		std::print(" ===== STL_Future End =====\n");
 	}
 
 };
@@ -39,4 +39,6 @@ std::future 是现代C++异步编程的基石：
 	多线程等待使用 std::shared_future
 	警惕生命周期问题和有效性状态
 	结合C++20协程实现更优雅的异步代码
+
+	但是协程并不太优雅，一想到就头大
 */

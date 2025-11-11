@@ -51,6 +51,6 @@ int main()
 
     ObsMgr::instance().Run();
 
-    std::cout << "按回车键退出... \n";
+	std::print("按回车键退出... \n");
     std::cin.ignore(32, '\n');
 }

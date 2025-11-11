@@ -12,7 +12,8 @@ class STL_String : public Observer
 public:
 
 	//	预定义两位数字的ASCII字符数组 用于高效数字转字符串
-	static constexpr char TWO_ASCII_DIGITS[100][2] = {
+	static constexpr char TWO_ASCII_DIGITS[100][2] = 
+	{
 	  {'0','0'}, {'0','1'}, {'0','2'}, {'0','3'}, {'0','4'},
 	  {'0','5'}, {'0','6'}, {'0','7'}, {'0','8'}, {'0','9'},
 	  {'1','0'}, {'1','1'}, {'1','2'}, {'1','3'}, {'1','4'},
@@ -233,6 +234,11 @@ public:
 	void Test() override
 	{
 		std::print(" ===== STL_String Begin =====\n");
+
+		//	String view 用于固定字符串，避免不必要的字符串拷贝
+		std::string_view sv = "This is a string_view example.";
+		std::print("String View: {}\n", sv);
+
 		std::string str1 = "Hello, ";
 		std::string str2 = "World!";
 		std::string str3 = str1 + str2;

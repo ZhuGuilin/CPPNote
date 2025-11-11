@@ -1,6 +1,6 @@
 #pragma once
 
-#include <iostream>
+#include <print>
 #include <map>
 #include "Observer.h"
 
@@ -10,11 +10,11 @@ public:
 
 	void Test() override
 	{
-		std::cout << " ===== STL_Map Bgein =====" << std::endl;
+		std::print(" ===== STL_Map Bgein =====\n");
 
 		std::map<int, int> mp;
 		mp.insert({ 1, 21 });
 
-		std::cout << " ===== STL_Map End =====" << std::endl;
+		std::print(" ===== STL_Map End =====\n");
 	}
 };

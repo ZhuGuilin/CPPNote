@@ -1,5 +1,5 @@
 #include "net_asio.h"
-#include <iostream>
+#include <print>
 #include <boost/asio.hpp>
 
 namespace
@@ -17,11 +17,11 @@ net_asio::~net_asio()
 
 void net_asio::Test()
 {
-	std::cout << "===== net_asio Bgein =====" << std::endl;
+	std::print("===== net_asio Bgein =====\n");
 #if 0
 
-	std::cout << "boost::asio::io_context sizeof :" << sizeof(boost::asio::io_context) << std::endl;
-	std::cout << "boost::asio::ip::tcp::socket sizeof :" << sizeof(tcp::socket) << std::endl;
+	std::print("boost::asio::io_context sizeof : {}.\n", sizeof(boost::asio::io_context));
+	std::print("boost::asio::ip::tcp::socket sizeof : {}.\n", sizeof(tcp::socket));
 
 	boost::asio::io_context io_ctx;
 	tcp::endpoint endpoint(boost::asio::ip::address_v4::any(), 8086);
@@ -38,20 +38,20 @@ void net_asio::Test()
 					{
 						if (!ec)
 						{
-							std::cout << "Server received : " << std::string(buffer, bytes_transferred)
-										<< "  size :" << bytes_transferred << std::endl;
+							std::print("Server received : {}, size : {}.\n", std::string(buffer, bytes_transferred),
+										bytes_transferred);
 						}
 						else
 						{
-							std::cout << "Server read error: " << ec.message() << std::endl;
+							std::print("Server read error : {}.\n", ec.message());
 						}
 					});
 
-				std::cout << "Server: Accepted connection." << std::endl;
+				std::print("Server: Accepted connection.\n");
 			}
 			else
 			{
-				std::cout << "Server: Accept error: " << ec.message() << std::endl;
+				std::print("Server: Accept error : {}.\n", ec.message());
 			}
 		});
 
@@ -63,5 +63,5 @@ void net_asio::Test()
 
 #endif
 
-	std::cout << "===== net_asio End =====" << std::endl;
+	std::print("===== net_asio End =====\n");
 }
