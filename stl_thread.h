@@ -104,7 +104,7 @@ public:
 				_threads.emplace_back(std::thread([&]() {
 					while (!_stop.load())
 					{
-						std::print("ThreadManager working tid £º{}.\n", std::this_thread::get_id());
+						std::print("ThreadManager working thread ID £º{}.\n", std::this_thread::get_id());
 						std::this_thread::sleep_for(300ms);
 					}
 					}));
@@ -188,6 +188,8 @@ public:
 			using namespace std::chrono_literals;
 			const int num_cpu = max(1u, std::thread::hardware_concurrency()) / 2;
 			_threads.reserve(num_cpu);
+			_stop.store(false);
+
 			for (int i = 0; i < num_cpu; i++)
 			{
 				_threads.emplace_back(std::thread([this]() {
@@ -224,7 +226,7 @@ public:
 				Stop();
 		}
 
-		std::atomic_bool _stop{ false };
+		std::atomic_bool _stop{ true };
 		std::vector<ThreadGuardJoin> _threads;
 
 		std::mutex _mutex;
@@ -242,7 +244,7 @@ public:
 
 		std::this_thread::yield();	// ÈÃ³öCPU
 
-		int num = 0;
+		int num = 7758;
 		std::string str = "abcdef";
 		std::thread t(worker1,
 			num,       // Öµ´«µİ£¨¸´ÖÆ£©
@@ -281,7 +283,7 @@ public:
 		t3.join();
 
 		ThreadManager::instance();
-		std::this_thread::sleep_for(1s);		// ĞİÃß 2s		ms us ns
+		std::this_thread::sleep_for(1s);		// ĞİÃß 1s		ms us ns
 		ThreadManager::instance().Stop();
 
 		ThreadPool::instance();
