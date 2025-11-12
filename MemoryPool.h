@@ -75,7 +75,7 @@ public:
 		}
 
 #if 1	//	调试用，查看起始buf地址
-		auto constexpr buf_address() noexcept { return std::uintptr_t(_buf); }
+		auto constexpr buf_address() const noexcept { return std::uintptr_t(_buf); }
 #endif
 		static constexpr std::size_t size() noexcept { return N; }
 		std::size_t used() const noexcept { return static_cast<std::size_t>(_ptr - _buf); }
@@ -279,34 +279,49 @@ public:
 	{
 		std::print(" ===== MemoryPool Bgein =====\n");
 
-		//	使用栈空间分配内存
+		//	普通vector分配内存，成员在堆空间中分配
 		std::print("alignof(std::max_align_t) : {}.\n", alignof(std::max_align_t));
+		std::print("sizeof std::vector   : {}.\n", sizeof std::vector<MyStruct>);
+		std::vector<MyStruct> normal_vec;
+		normal_vec.reserve(32);
+		for (int i = 0; i < 4; i++)
+		{
+			normal_vec.emplace_back(i, i);
+		}
+		std::print("normal_vec address : {}.\n", std::uintptr_t(&normal_vec));
+		for (const auto& item : normal_vec)
+		{
+			//	成员地址在堆空间中分配
+			std::print("normal item address: {}.\n", std::uintptr_t(&item));
+		}
+
+		//	使用栈空间分配内存
 		using allocator_type = StackPool<MyStruct, 
 			(64 * sizeof(MyStruct) + (alignof(std::max_align_t) - 1)) & ~(alignof(std::max_align_t) - 1)>;
 		using arena_type = typename allocator_type::arena_type;
 		using stack_storage = std::vector<MyStruct, allocator_type>;
-		arena_type arena;
-		stack_storage stack_vec(arena);
+		arena_type arena_pool;
+		stack_storage stack_vec(arena_pool);
 		stack_vec.reserve(32);
 		for (int i = 0; i < 4; i++)
 		{
 			stack_vec.emplace_back(i, i * 10);
 		}
 
-		std::print("sizeof std::vector   : {}.\n", sizeof std::vector<MyStruct>);
 		std::print("sizeof stack_storage : {}.\n", sizeof stack_storage);
 		std::print("stack_vec address  : {}.\n", std::uintptr_t(&stack_vec));
-		std::print("arena address      : {}.\n", std::uintptr_t(&arena));
-		std::print("arena buf address  : {}.\n", arena.buf_address());	//	与arena地址相同
+		std::print("arena address      : {}.\n", std::uintptr_t(&arena_pool));
+		std::print("arena buf address  : {}.\n", arena_pool.buf_address());	//	与arena地址相同
 		
 		for (const auto& item : stack_vec)
 		{
-			//	成员地址确实在栈空间中分配
+			//	成员地址在栈空间中分配
 			std::print("stack item address : {}.\n", std::uintptr_t(&item));
 		}
 
-		//	使用 std::pmr 分配内存
-		char buffer[64 * sizeof(MyStruct)];
+		//	使用 std::pmr 分配内存，类似于上面的栈空间分配
+		//	std::pmr 更加通用，运行时绑定可以动态调整内存资源，效率略低于stackpool
+		char buffer[64 * sizeof(MyStruct)];	//	预分配栈空间
 		std::pmr::monotonic_buffer_resource pmr_pool(std::data(buffer), std::size(buffer));
 		std::pmr::vector<MyStruct> pmr_vec(&pmr_pool);
 		pmr_vec.reserve(32);
@@ -318,7 +333,7 @@ public:
 		std::print("pmr_vec address    : {}.\n", std::uintptr_t(&pmr_vec));
 		for (const auto& item : pmr_vec)
 		{
-			//	成员地址确实在 buffer空间中分配
+			//	成员地址在buffer空间中分配
 			std::print("pmr item address   : {}.\n", std::uintptr_t(&item));
 		}
 		
