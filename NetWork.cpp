@@ -56,9 +56,9 @@ FARPROC GetExtensionProcAddress(SOCKET socket, GUID& Guid)
 	return lpfn;
 }
 
-struct WinSockInitializer
+static struct WinSockInitializer
 {
-	explicit WinSockInitializer()
+	WinSockInitializer()
 	{
 		WSADATA wsaData;
 		::WSASetLastError(0);
@@ -73,12 +73,7 @@ struct WinSockInitializer
 	{
 		::WSACleanup();
 	}
-
-	WinSockInitializer(const WinSockInitializer&) = delete;
-	WinSockInitializer& operator=(const WinSockInitializer&) = delete;
-	WinSockInitializer(WinSockInitializer&&) = default;
-	WinSockInitializer& operator=(WinSockInitializer&&) = default;
-};
+} s_win_sock_initializer;
 
 class ThreadGuardJoin
 {
@@ -565,8 +560,6 @@ void NetWork::Test()
 {
 
 	std::print(" ===== NetWork Bgein =====\n");
-	WinSockInitializer wsaInit;
-	(void)wsaInit;	//	±‹√‚±‡“Î∆˜æØ∏Ê
 
 	std::print("std::error_code sizeof : {}.\n", sizeof(std::error_code));
 	std::print("Acceptor sizeof : {}.\n", sizeof(Acceptor));

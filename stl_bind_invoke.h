@@ -7,7 +7,7 @@
 #include "Observer.h"
 
 namespace {
-//	copy from folly invoke.h
+	//	copy from folly invoke.h 等价于 std::invoke (C++17引入)
 struct invoke_fn {
 	template <typename F, typename... A>
 	inline constexpr auto operator()(F&& f, A&&... a) const

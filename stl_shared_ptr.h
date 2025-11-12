@@ -93,7 +93,7 @@ public:
 	void Test() override
 	{
 		std::print(" ===== STL_SharedPtr Bgein =====\n");
-
+		
 		{
 			std::shared_ptr<node> ptr = std::make_shared<node>(666, std::string("SharedPtr"));
 			auto ptr1 = ptr;		//	ok , 支持复制
@@ -101,6 +101,8 @@ public:
 			ptr2->Fn_call();
 		}
 
+		using namespace std::chrono_literals;
+		std::this_thread::sleep_for(2s);	//	等待子线程执行完毕
 		std::print(" ===== STL_SharedPtr End =====\n");
 	}
 };

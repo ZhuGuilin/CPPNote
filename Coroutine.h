@@ -1,6 +1,6 @@
 #pragma once
 
-#include <iostream>
+#include <print>
 #include <memory>
 #include <functional>
 #include <coroutine>
@@ -15,10 +15,10 @@ public:
 
 	void Test() override
 	{
-		std::cout << " ===== STL_Coroutine Bgein =====" << std::endl;
+		std::print(" ===== STL_Coroutine Bgein =====\n");
 
 
-		std::cout << " ===== STL_Coroutine End =====" << std::endl;
+		std::print(" ===== STL_Coroutine End =====\n");
 	}
 
 };
@@ -60,7 +60,7 @@ promise_type：必须包含的嵌套类型
 	销毁：handle.destroy()
 
 协程三大关键字
-	1. co_await - 异步等待
-	2. co_yield - 生成值
-	3. co_return - 返回值
+	1. co_await		- 异步等待
+	2. co_yield		- 生成值
+	3. co_return	- 返回值
 */

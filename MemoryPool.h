@@ -274,7 +274,9 @@ public:
 		ThreadGuard& operator=(const ThreadGuard&) = delete;
 		ThreadGuard& operator=(ThreadGuard&&) = delete;
 	};
+
 #pragma optimize("", off)
+
 	void Test() override
 	{
 		std::print(" ===== MemoryPool Bgein =====\n");
