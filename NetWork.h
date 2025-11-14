@@ -28,7 +28,7 @@ public:
 		}
 
 		explicit MessageBuffer(SizeType size)
-			: _storage(size)
+			:_storage(size)
 		{
 		}
 

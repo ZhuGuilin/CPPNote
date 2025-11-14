@@ -26,18 +26,12 @@ inline void asm_volatile_pause() {
 }
 
 #if  (defined(__x86_64__) || defined(_M_X64))
-constexpr uint32_t MAX_PAUSE_COUNT{ 200 };
-constexpr uint32_t MAX_YIELD_COUNT{ 600 };
-#elif defined(__arm__)
 constexpr uint32_t MAX_PAUSE_COUNT{ 400 };
-constexpr uint32_t MAX_YIELD_COUNT{ 800 };
+#elif defined(__arm__)
+constexpr uint32_t MAX_PAUSE_COUNT{ 800 };
 #else
-constexpr uint32_t MAX_PAUSE_COUNT{ 500 };
-constexpr uint32_t MAX_YIELD_COUNT{ 1000 };
+constexpr uint32_t MAX_PAUSE_COUNT{ 1200 };
 #endif
-
-constexpr uint32_t MAX_COUNT{ MAX_YIELD_COUNT * 2 };
-constexpr std::chrono::microseconds SLEEP_MICRO{ 200 };
 
 class MS_Lock : public Observer
 {
@@ -53,37 +47,54 @@ public:
 
 		void lock() noexcept {
 			uint32_t count = 0;
-			while (flag.test_and_set(std::memory_order_acquire)) {
-				if (count < MAX_COUNT) {
-					++count;
-				}
-
-				if (count <= MAX_PAUSE_COUNT) {
+			while (_flag.test_and_set(std::memory_order_acquire)) {
+				if (count++ <= MAX_PAUSE_COUNT) {
 					asm_volatile_pause();
 				}
-				else if (count <= MAX_YIELD_COUNT) {
+				else {
 #if defined(__arm__) && !(__ARM_ARCH < 7)
 					asm volatile("yield" ::: "memory");
 #else
 					std::this_thread::yield();
 #endif
 				}
-				else {
-					auto backoff = std::chrono::microseconds(1 << (count - MAX_YIELD_COUNT) / 10);
-					std::this_thread::sleep_for(min(backoff, SLEEP_MICRO));
-				}
 			}
 		}
+
 		void unlock() noexcept {
-			flag.clear(std::memory_order_release);
+			_flag.clear(std::memory_order_release);
 		}
+
 		bool trylock() noexcept {
-			return !flag.test_and_set(std::memory_order_acquire);
+			return !_flag.test_and_set(std::memory_order_acquire);
 		}
 
 	private:
 
-		alignas(64) std::atomic_flag flag = ATOMIC_FLAG_INIT;
+		alignas(64) std::atomic_flag _flag = ATOMIC_FLAG_INIT;
+	};
+
+	class SpinlockGuard
+	{
+	public:
+
+		explicit SpinlockGuard(Spinlock& lock) noexcept
+			: _lock(lock)
+		{
+			_lock.lock();
+		}
+
+		~SpinlockGuard() noexcept
+		{
+			_lock.unlock();
+		}
+
+		SpinlockGuard(const SpinlockGuard&) = delete;
+		SpinlockGuard& operator=(const SpinlockGuard&) = delete;
+
+	private:
+
+		Spinlock& _lock;
 	};
 
 	void Test() override
@@ -91,6 +102,7 @@ public:
 		std::print(" ===== SpinLock Bgein =====\n");
 
 		Spinlock slock;
+		//SpinlockGuard lock(slock);
 		std::lock_guard<Spinlock> lock(slock);
 
 		std::print(" ===== SpinLock End =====\n");

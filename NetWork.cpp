@@ -253,7 +253,7 @@ bool NetWork::Acceptor::ConfigureListeningSocket()
 	return true;
 }
 
-std::vector<std::shared_ptr<NetWork::TcpSocket>> _sockets;
+std::vector<std::shared_ptr<NetWork::TcpSocket>> _sockets;	//	用于测试，保存连接对象，防止被释放
 void NetWork::Acceptor::OnAcceptComplete(const std::error_code& ec, const std::size_t size, SOCKET socket)
 {
 	std::print("Accept completed socket : {}, with : {}, bytes : {}.\n", socket, ec.message(), size);
@@ -358,15 +358,12 @@ void NetWork::TcpSocket::AsyncConnect(address_v4&& addr, const std::uint16_t por
 
 void NetWork::TcpSocket::AsyncRead()
 {
-	int error = 0;
-	int len = sizeof(error);
-	if (::getsockopt(_socket, SOL_SOCKET, SO_TYPE, (char*)&error, &len) == SOCKET_ERROR)
-	{
-		std::print("NetWork::TcpSocket::AsyncRead => getsockopt() failed! error : {}.\n", ::WSAGetLastError());
-	}
-
 	DWORD dwFlags = 0;
 	DWORD dwRecved = 0;
+	
+	_readBuffer.reset();
+	_wsabuf.len = _readBuffer.size();
+	_wsabuf.buf = (int8_t*)_readBuffer.data();
 	std::memset(_readOpt.get(), 0, sizeof(OVERLAPPED));
 	::WSASetLastError(0);
 	int result = ::WSARecv(_socket,
@@ -386,7 +383,26 @@ void NetWork::TcpSocket::AsyncRead()
 
 void NetWork::TcpSocket::AsyncSend()
 {
+	DWORD dwFlags = 0;
+	DWORD dwSend = 0;
 
+	_wsabuf.len = _sendBuffer.read_size();
+	_wsabuf.buf = (int8_t*)_sendBuffer.data();
+	std::memset(_sendOpt.get(), 0, sizeof(OVERLAPPED));
+	::WSASetLastError(0);
+	int result = ::WSASend(_socket,
+		(WSABUF*)&_wsabuf,
+		1,
+		&dwSend,
+		dwFlags,
+		_sendOpt.get(),
+		nullptr);
+	int err = ::WSAGetLastError();
+	if (result == SOCKET_ERROR && err != WSA_IO_PENDING)
+	{
+		std::print("NetWork::TcpSocket::AsyncSend => WSASend() failed! error : {}, socket : {}.\n", err, _socket);
+		OnSendComplete(std::error_code(err, std::system_category()), 0);
+	}
 }
 
 void NetWork::TcpSocket::OnConnectComplete(const std::error_code& ec, const std::size_t size)
@@ -397,9 +413,6 @@ void NetWork::TcpSocket::OnConnectComplete(const std::error_code& ec, const std:
 
 void NetWork::TcpSocket::OnReadComplete(const std::error_code& ec, const std::size_t size)
 {
-	std::print("NetWork::TcpSocket::OnReadComplete => Read completed with : {}, bytes : {}, socket : {}.\n",
-			ec.message(), size, _socket);
-
 	if (size == 0)
 	{
 		std::print("NetWork::TcpSocket::OnReadComplete => Connection closed by peer! socket : {}.\n", _socket);
@@ -414,7 +427,11 @@ void NetWork::TcpSocket::OnReadComplete(const std::error_code& ec, const std::si
 	}
 
 	std::string msg((char*)_readBuffer.data(), size);
-	std::print("NetWork::TcpSocket::OnReadComplete => Recv message : {}.\n", msg);
+	std::print("NetWork::TcpSocket::OnReadComplete => Read message : {}.\n", msg);
+
+	//	echo back
+	_sendBuffer.write(msg.data(), size);
+	AsyncSend();
 }
 
 void NetWork::TcpSocket::OnSendComplete(const std::error_code& ec, const std::size_t size)
@@ -422,7 +439,7 @@ void NetWork::TcpSocket::OnSendComplete(const std::error_code& ec, const std::si
 	std::print("NetWork::TcpSocket::OnSendComplete => Send completed with : {}, bytes : {}, socket : {}.\n",
 			ec.message(), size, _socket);
 
-
+	_sendBuffer.reset();
 }
 
 void NetWork::TcpSocket::initialize_socket()
@@ -454,9 +471,6 @@ void NetWork::TcpSocket::initialize_socket()
 
 	_sendOpt = std::make_unique<Operation>();
 	_sendOpt->op_type = Operation::Type::Type_Send;
-
-	_wsabuf.len = _readBuffer.size();
-	_wsabuf.buf = (int8_t*)_readBuffer.data();
 
 	_lpfnConnectEx = reinterpret_cast<LPFN_ACCEPTEX>(GetExtensionProcAddress(_socket, WSAID_ConnectEx));
 	_state.store(State_Open);
@@ -621,8 +635,16 @@ void NetWork::Test()
 
 	NetWork::Service service;
 	Acceptor acceptor(service, NetWork::address_v4::any(), 8086);
-	acceptor.AsyncAccept();
-	service.run();
+
+	std::vector<ThreadGuardJoin> threads;
+	for (int i = 0; i < 4; ++i)
+	{ 
+		threads.emplace_back(std::thread([&service, &acceptor]() {
+			acceptor.AsyncAccept();
+			service.run();
+			}));
+	}
+	std::this_thread::sleep_for(std::chrono::seconds(120));
 
 #if 0
 	
