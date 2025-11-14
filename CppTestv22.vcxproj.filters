@@ -83,5 +83,8 @@
     <ClInclude Include="stl_string.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="ringbuffer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

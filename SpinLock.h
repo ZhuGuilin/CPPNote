@@ -74,27 +74,32 @@ public:
 		alignas(64) std::atomic_flag _flag = ATOMIC_FLAG_INIT;
 	};
 
-	class SpinlockGuard
+	class Spinlock2
 	{
 	public:
 
-		explicit SpinlockGuard(Spinlock& lock) noexcept
-			: _lock(lock)
+		void lock() noexcept
 		{
-			_lock.lock();
+			while (_flag.test_and_set(std::memory_order_acquire))
+			{
+				//asm_volatile_pause();
+				std::this_thread::yield();	//	在memorypool.h测试中发现直接yield性能更好??
+			}
 		}
 
-		~SpinlockGuard() noexcept
+		void unlock() noexcept 
 		{
-			_lock.unlock();
+			_flag.clear(std::memory_order_release);
 		}
 
-		SpinlockGuard(const SpinlockGuard&) = delete;
-		SpinlockGuard& operator=(const SpinlockGuard&) = delete;
+		bool trylock() noexcept 
+		{
+			return !_flag.test_and_set(std::memory_order_acquire);
+		}
 
 	private:
 
-		Spinlock& _lock;
+		alignas(64) std::atomic_flag _flag = ATOMIC_FLAG_INIT;
 	};
 
 	void Test() override
@@ -102,7 +107,6 @@ public:
 		std::print(" ===== SpinLock Bgein =====\n");
 
 		Spinlock slock;
-		//SpinlockGuard lock(slock);
 		std::lock_guard<Spinlock> lock(slock);
 
 		std::print(" ===== SpinLock End =====\n");

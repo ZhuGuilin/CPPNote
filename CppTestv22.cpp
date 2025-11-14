@@ -18,6 +18,7 @@
 #include "Coroutine.h"
 
 #include "MemoryPool.h"
+#include "ringbuffer.h"
 #include "SpinLock.h"
 
 #include "NetWork.h"
@@ -34,6 +35,7 @@ namespace
 	STL_List stl_list;
 	STL_Future stl_future;
 	MemoryPool memory_pool;
+	RingBuffer ring_buffer;
 	STL_Bind_Invoke stl_bind_invoke;
 	STL_Thread stl_thread;
 	STL_String stl_string;

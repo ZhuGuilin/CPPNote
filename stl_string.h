@@ -175,18 +175,18 @@ public:
 	};
 
 	//	字符串分割函数
-	static void split1(std::vector<std::string>& v, std::string_view&& s, const char* c)
+	static void split1(std::vector<std::string>& tokens, std::string_view&& str, const char* c)
 	{
-		v.clear();
+		tokens.clear();
 		std::string::size_type b = 0, e = 0;
 		for (;;)
 		{
-			b = s.find_first_not_of(c, e);
+			b = str.find_first_not_of(c, e);
 			if (std::string::npos == b)
 				break;
 
-			e = s.find_first_of(c, b);
-			v.emplace_back(s.substr(b, e - b));
+			e = str.find_first_of(c, b);
+			tokens.emplace_back(str.substr(b, e - b));
 
 			if (std::string::npos == e)
 				break;
@@ -199,19 +199,24 @@ public:
 		size_t start = 0;
 		size_t end = str.find(delimiter);
 		tokens.clear();
-		while (end != std::string::npos) {
+
+		while (end != std::string::npos) 
+		{
 			tokens.emplace_back(str.substr(start, end - start));
 			start = end + 1;
 			end = str.find(delimiter, start);
 		}
+
 		tokens.emplace_back(str.substr(start));
 	}
 
 	//	字符串替换函数
 	void replace(const std::string& s, const std::string& oldsub,
 		const std::string& newsub, bool replace_all,
-		std::string* res) {
-		if (oldsub.empty()) {
+		std::string* res) 
+	{
+		if (oldsub.empty()) 
+		{
 			res->append(s);  // if empty, append the given string.
 			return;
 		}
@@ -221,13 +226,14 @@ public:
 		std::string::size_type pos;
 		do {
 			pos = s.find(oldsub, start_pos);
-			if (pos == std::string::npos) {
+			if (pos == std::string::npos) 
 				break;
-			}
+			
 			res->append(s, start_pos, pos - start_pos);
 			res->append(newsub);
 			start_pos = pos + oldsub.size();  // start searching again after the "old"
 		} while (replace_all);
+
 		res->append(s, start_pos, s.length() - start_pos);
 	}
 
@@ -304,7 +310,7 @@ public:
 		char buffer[Int32ToBufferOffset + 1];
 		std::print("Integer to string conversion: {}\n", Int32ToBuffer(-845014722, buffer));
 
-		//	结果是 \0开头，有问题
+		//	结果是 \0开头，有问题!
 		std::print("Unsigned Integer to string conversion: {}\n", UInt32ToBufferLeft(3456789123u, buffer));
 
 		std::print(" ===== STL_String End =====\n");
