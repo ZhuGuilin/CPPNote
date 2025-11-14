@@ -19,9 +19,6 @@ constexpr DWORD WSA_FLAGS = WSA_FLAG_REGISTERED_IO | WSA_FLAG_OVERLAPPED;
 constexpr DWORD WSA_FLAGS = WSA_FLAG_OVERLAPPED;
 #endif
 
-typedef std::vector<std::shared_ptr<NetWork::TcpSocket>> TcpSocketList;
-TcpSocketList _sockets;
-
 sockaddr_in MakeAddress(const std::string& ip, const uint16_t port) 
 {
 	sockaddr_in addr = {};
@@ -161,9 +158,7 @@ NetWork::Acceptor::Acceptor(Service& service, const address_v4& addr, const std:
 	}
 	
 	_opt = std::make_unique<Operation>();
-	_opt->complete = [this](std::error_code ec, std::size_t size) {
-		this->OnAcceptComplete(ec, size);
-		};
+	_opt->op_type = Operation::Type::Type_Accept;
 
 	std::print("NetWork::Acceptor::Acceptor => Acceptor created! \n listening on => {}:{}\n listen socket => {}.\n",
 				_addr.to_string(), _port, _listener);
@@ -184,30 +179,29 @@ NetWork::Acceptor::~Acceptor()
 
 void NetWork::Acceptor::AsyncAccept()
 {
-	auto client = std::make_shared<NetWork::TcpSocket>();
-	_sockets.push_back(client);
-
+	auto client = ::WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAGS);
 	DWORD dwRecvNumBytes = 0;
-	std::memset(&_opt->overlapped, 0, sizeof(OVERLAPPED));
+	std::memset(_opt.get(), 0, sizeof(OVERLAPPED));
+	_opt->socket = client;
 	auto ret = reinterpret_cast<LPFN_ACCEPTEX>(_lpfnAcceptEx)(
 				_listener,
-				client->handle(),
+				client,
 				_readBuffer.data(),
 				0,
 				sizeof(sockaddr_in) + 16,
 				sizeof(sockaddr_in) + 16,
 				&dwRecvNumBytes,
-				&_opt->overlapped);
+				_opt.get());
 
 	auto last_error = ::WSAGetLastError();
 	if (!ret && last_error != WSA_IO_PENDING)
 	{
 		std::print("NetWork::Socket::AsyncAccept => AcceptEx() failed! error : {}, client socket : {}.\n",
-			::WSAGetLastError(), client->handle());
+			::WSAGetLastError(), client);
 	}
 	else
 	{
-		std::print("NetWork::Acceptor::AsyncAccept => AcceptEx() posted! socket => {}.\n", client->handle());
+		std::print("NetWork::Acceptor::AsyncAccept => AcceptEx() posted! socket => {}.\n", client);
 	}
 }
 
@@ -259,11 +253,12 @@ bool NetWork::Acceptor::ConfigureListeningSocket()
 	return true;
 }
 
-void NetWork::Acceptor::OnAcceptComplete(const std::error_code& ec, const std::size_t size)
+std::vector<std::shared_ptr<NetWork::TcpSocket>> _sockets;
+void NetWork::Acceptor::OnAcceptComplete(const std::error_code& ec, const std::size_t size, SOCKET socket)
 {
-	std::print("Accept completed with : {}, bytes : {}.\n", ec.message(), size);
+	std::print("Accept completed socket : {}, with : {}, bytes : {}.\n", socket, ec.message(), size);
 	if (::setsockopt(
-		_sockets[0]->handle(),
+		socket,
 		SOL_SOCKET,
 		SO_UPDATE_ACCEPT_CONTEXT,
 		(char*)&_listener,
@@ -273,26 +268,19 @@ void NetWork::Acceptor::OnAcceptComplete(const std::error_code& ec, const std::s
 					::WSAGetLastError());
 	}
 
-	//	允许地址重用
-	int reuseAddr = 1;
-	if (::setsockopt(_sockets[0]->handle(),
-		SOL_SOCKET,
-		SO_REUSEADDR,
-		(char*)&reuseAddr,
-		sizeof(reuseAddr)) == SOCKET_ERROR)
-	{
-		std::print("NetWork::Acceptor::Acceptor => setsockopt() SO_REUSEADDR failed! error : {}.\n", ::WSAGetLastError());
-	}
+	//	创建新连接对象
+	auto tcpSocket = std::make_shared<TcpSocket>(socket);
+	_sockets.push_back(tcpSocket);
 
 	//	新连接关联 IOCP
-	if (!_service.RegisterHandle(reinterpret_cast<HANDLE>(_sockets[0]->handle()),
-		reinterpret_cast<ULONG_PTR>(_sockets[0].get())))
+	if (!_service.RegisterHandle(reinterpret_cast<HANDLE>(socket),
+		reinterpret_cast<ULONG_PTR>(tcpSocket.get())))
 	{
 		std::print("NetWork::Acceptor::OnAcceptComplete => RegisterHandle() failed! error : {}.\n", ::WSAGetLastError());
 	}
 
 	//	新连接投递读操作
-	_sockets[0]->AsyncRead();
+	tcpSocket->AsyncRead();
 
 	//	继续接受下一个连接
 	if (!_closed.load())
@@ -325,53 +313,23 @@ NetWork::TcpSocket::TcpSocket()
 	: _state(State_Closed)
 	, _remoteAddress(address_v4::any())
 {
-	int nZero = 0;
-	int noDelay = 1;
 	_socket = ::WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAGS);
 	if (_socket == INVALID_SOCKET)
 	{
 		std::print("NetWork::Acceptor::Acceptor => WSASocket() failed! error : {}.\n", ::WSAGetLastError());
-		goto __Construct_Failed;
 	}
-	
-	//	设置发送缓冲区为0，禁用缓冲区(减少延迟, 友好短消息)
-	if (::setsockopt(_socket, SOL_SOCKET, SO_SNDBUF, (char*)&nZero, sizeof(nZero)) == SOCKET_ERROR)
+	else
 	{
-		std::print("NetWork::TcpSocket::TcpSocket => setsockopt() SO_SNDBUF failed! error : {}.\n", ::WSAGetLastError());
-		goto __Construct_Failed;
+		initialize_socket();
 	}
+}
 
-	//	禁用 Nagle 算法	
-	if (::setsockopt(_socket, IPPROTO_TCP, TCP_NODELAY, (char*)&noDelay, sizeof(noDelay)) == SOCKET_ERROR)
-	{
-		std::print("NetWork::TcpSocket::TcpSocket => setsockopt() TCP_NODELAY failed! error : {}.\n", ::WSAGetLastError());
-		goto __Construct_Failed;
-	}
-
-	_readOpt = std::make_unique<Operation>();
-	_readOpt->complete = [this](std::error_code ec, std::size_t size) {
-		this->OnReadComplete(ec, size);
-		};
-	
-	_sendOpt = std::make_unique<Operation>();
-	_sendOpt->complete = [this](std::error_code ec, std::size_t size) {
-		this->OnSendComplete(ec, size);
-		};
-	
-	_wsabuf.len = _readBuffer.size();
-	_wsabuf.buf = (int8_t*)_readBuffer.data();
-
-	_lpfnConnectEx = reinterpret_cast<LPFN_ACCEPTEX>(GetExtensionProcAddress(_socket, WSAID_ConnectEx));
-	_state.store(State_Open);
-
-	return;
-
-__Construct_Failed:
-	if (_socket != INVALID_SOCKET)
-	{
-		::closesocket(_socket);
-		_socket = INVALID_SOCKET;
-	}
+NetWork::TcpSocket::TcpSocket(SOCKET socket)
+	: _socket(socket)
+	, _state(State_Closed)
+	, _remoteAddress(address_v4::any())
+{
+	initialize_socket();
 }
 
 NetWork::TcpSocket::~TcpSocket()
@@ -409,14 +367,14 @@ void NetWork::TcpSocket::AsyncRead()
 
 	DWORD dwFlags = 0;
 	DWORD dwRecved = 0;
-	std::memset(&_readOpt->overlapped, 0, sizeof(OVERLAPPED));
+	std::memset(_readOpt.get(), 0, sizeof(OVERLAPPED));
 	::WSASetLastError(0);
 	int result = ::WSARecv(_socket,
 						(WSABUF*)&_wsabuf,
 						1,
 						&dwRecved,
 						&dwFlags,
-						&_readOpt->overlapped,
+						_readOpt.get(),
 						nullptr);
 	int err = ::WSAGetLastError();
 	if (result == SOCKET_ERROR && err != WSA_IO_PENDING)
@@ -467,6 +425,43 @@ void NetWork::TcpSocket::OnSendComplete(const std::error_code& ec, const std::si
 
 }
 
+void NetWork::TcpSocket::initialize_socket()
+{
+	int nZero = 0;
+	int noDelay = 1;
+	int reAddr = 1;
+
+	//	允许地址重用
+	if (::setsockopt(_socket, SOL_SOCKET, SO_REUSEADDR, (char*)&reAddr, sizeof(reAddr)) == SOCKET_ERROR)
+	{
+		std::print("NetWork::Acceptor::Acceptor => setsockopt() SO_REUSEADDR failed! error : {}.\n", ::WSAGetLastError());
+	}
+
+	//	设置发送缓冲区为0，禁用缓冲区(减少延迟, 友好短消息)
+	if (::setsockopt(_socket, SOL_SOCKET, SO_SNDBUF, (char*)&nZero, sizeof(nZero)) == SOCKET_ERROR)
+	{
+		std::print("NetWork::TcpSocket::TcpSocket => setsockopt() SO_SNDBUF failed! error : {}.\n", ::WSAGetLastError());
+	}
+
+	//	禁用 Nagle 算法	
+	if (::setsockopt(_socket, IPPROTO_TCP, TCP_NODELAY, (char*)&noDelay, sizeof(noDelay)) == SOCKET_ERROR)
+	{
+		std::print("NetWork::TcpSocket::TcpSocket => setsockopt() TCP_NODELAY failed! error : {}.\n", ::WSAGetLastError());
+	}
+
+	_readOpt = std::make_unique<Operation>();
+	_readOpt->op_type = Operation::Type::Type_Read;
+
+	_sendOpt = std::make_unique<Operation>();
+	_sendOpt->op_type = Operation::Type::Type_Send;
+
+	_wsabuf.len = _readBuffer.size();
+	_wsabuf.buf = (int8_t*)_readBuffer.data();
+
+	_lpfnConnectEx = reinterpret_cast<LPFN_ACCEPTEX>(GetExtensionProcAddress(_socket, WSAID_ConnectEx));
+	_state.store(State_Open);
+}
+
 NetWork::Service::Service()
 	:_stopped(false)
 {
@@ -488,14 +483,14 @@ NetWork::Service::~Service()
 	}
 }
 
-void NetWork::Service::Post(Operation* op) noexcept
+void NetWork::Service::Post(Operation* opt) noexcept
 {
 	if (_stopped.load())
 	{
 		return;
 	}
 
-	if (!::PostQueuedCompletionStatus(_iocp, 0, 0, &op->overlapped))
+	if (!::PostQueuedCompletionStatus(_iocp, 0, 0, opt))
 	{
 		//	失败了, op需要存储
 		std::print("NetWork::Service::post => PostQueuedCompletionStatus() failed! error : {}.\n", ::GetLastError());
@@ -545,9 +540,44 @@ void NetWork::Service::run()
 
 		if (opt)
 		{
-			opt->complete(ok ? std::error_code()
-				: std::error_code(static_cast<int>(last_error), std::system_category()),
-				bytes_transferred);
+			switch (opt->op_type)
+			{
+			case Operation::Type::Type_Accept:
+				{
+				auto acceptor = reinterpret_cast<NetWork::Acceptor*>(completionKey);
+				acceptor->OnAcceptComplete(ok ? std::error_code()
+					: std::error_code(static_cast<int>(last_error), std::system_category()),
+					bytes_transferred, opt->socket);
+				}
+				break;
+			case Operation::Type::Type_Connect:
+				{
+					auto socket = reinterpret_cast<NetWork::TcpSocket*>(completionKey);
+					socket->OnConnectComplete(ok ? std::error_code()
+						: std::error_code(static_cast<int>(last_error), std::system_category()),
+						bytes_transferred);
+				}
+				break;
+			case Operation::Type::Type_Read:
+				{
+					auto socket = reinterpret_cast<NetWork::TcpSocket*>(completionKey);
+					socket->OnReadComplete(ok ? std::error_code()
+						: std::error_code(static_cast<int>(last_error), std::system_category()),
+						bytes_transferred);
+				}
+				break;
+			case Operation::Type::Type_Send:
+				{
+					auto socket = reinterpret_cast<NetWork::TcpSocket*>(completionKey);
+					socket->OnSendComplete(ok ? std::error_code()
+						: std::error_code(static_cast<int>(last_error), std::system_category()),
+						bytes_transferred);
+				}
+				break;
+			default:
+				break;
+			}
+			
 		}
 		else if (!ok)
 		{
@@ -563,7 +593,6 @@ void NetWork::Test()
 
 	std::print("std::error_code sizeof : {}.\n", sizeof(std::error_code));
 	std::print("Acceptor sizeof : {}.\n", sizeof(Acceptor));
-	std::print("Function sizeof : {}.\n", sizeof(Operation::CompletionHandler));
 	std::print("TcpSocket sizeof : {}.\n", sizeof(TcpSocket));
 	std::print("Operation sizeof : {}.\n", sizeof(Operation));
 	std::print("Service sizeof : {}.\n", sizeof(Service));

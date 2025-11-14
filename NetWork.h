@@ -113,12 +113,17 @@ public:
 	};
 
 	class TcpSocket;
-	struct Operation
+	struct Operation : public OVERLAPPED
 	{
-		typedef std::function<void(const std::error_code&, const std::size_t)> CompletionHandler;
+		enum class Type : std::uint8_t
+		{
+			Type_Accept,
+			Type_Connect,
+			Type_Read,
+			Type_Send,
+		} op_type;
 
-		OVERLAPPED	overlapped;
-		CompletionHandler complete;
+		SOCKET 	socket{ INVALID_SOCKET };
 	};
 
 	class address_v4
@@ -198,7 +203,7 @@ public:
 		Acceptor& operator=(const Acceptor&) = delete;
 		Acceptor& operator=(Acceptor&&) = delete;
 
-		void OnAcceptComplete(const std::error_code& ec, const std::size_t size);
+		void OnAcceptComplete(const std::error_code& ec, const std::size_t size, SOCKET socket);
 
 	private:
 
@@ -223,7 +228,8 @@ public:
 	{
 	public:
 
-		explicit TcpSocket();
+		TcpSocket();
+		explicit TcpSocket(SOCKET socket);
 		virtual ~TcpSocket();
 
 		void shutdown() noexcept;
@@ -247,6 +253,8 @@ public:
 		void OnSendComplete(const std::error_code& ec, const std::size_t size);
 
 	private:
+
+		void initialize_socket();
 
 		SOCKET	_socket{ INVALID_SOCKET };
 		void* _lpfnConnectEx{ nullptr };
@@ -272,7 +280,7 @@ public:
 		explicit Service();
 		~Service();
 
-		void Post(Operation* op) noexcept;
+		void Post(Operation* opt) noexcept;
 		bool RegisterHandle(HANDLE handle, ULONG_PTR key) noexcept;
 		void Stop() noexcept;
 		void run();
