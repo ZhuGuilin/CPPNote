@@ -58,6 +58,7 @@ public:
 
 		vec.reserve(128);	//	预设容量，实际 size 仍然是 0 ，避免push_back过程中频繁扩容
 		vec.push_back(7);	//	push 一个元素，此时 size() = 1, capacity() = 128
+		auto count = std::distance(vec.begin(), vec.end());
 
 		vec.clear();	//	只清空内容不回收内存，仅将 _last 移至 _first 处，之前的数据仍然保留
 		vec.shrink_to_fit();	//	请求释放内存（容量降为0）

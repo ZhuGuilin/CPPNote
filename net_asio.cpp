@@ -1,11 +1,16 @@
 #include "net_asio.h"
 #include <print>
+
+#define HAS_BOOST_LIB 0
+
+#if HAS_BOOST_LIB
 #include <boost/asio.hpp>
 
 namespace
 {
 	using boost::asio::ip::tcp;
 }
+#endif
 
 net_asio::net_asio()
 {

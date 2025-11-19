@@ -385,13 +385,13 @@ public:
 
 		auto end = std::chrono::high_resolution_clock::now();
 #if USE_MEMORY_POOL
-		std::print("MemoryPool 内存池测试 + {}, 共耗时 : {}, Total : {}.\n", SPIN_LOCK ? "SpinLock" : "Mutex",
+		std::print("MemoryPool 内存池测试 + {}, 共耗时 : {}ms, Total : {}.\n", SPIN_LOCK ? "SpinLock" : "Mutex",
 			std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count(), total);
 		//	使用 Spinlock 耗时 1000 - 1200 ms 左右
 		//	使用 Spinlock2 耗时 600 - 800 ms 左右
 		//	使用 std::mutex 耗时 300 - 350 ms 左右
 #else
-		std::print("MemoryPool ::new 共耗时 : {}, Total : {}.\n",
+		std::print("MemoryPool ::new 共耗时 : {}ms, Total : {}.\n",
 			std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count(), total);
 		//	耗时 200 ms 左右
 #endif

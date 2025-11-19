@@ -71,7 +71,7 @@ public:
 
 	private:
 
-		alignas(64) std::atomic_flag _flag = ATOMIC_FLAG_INIT;
+		alignas(std::hardware_destructive_interference_size) std::atomic_flag _flag = ATOMIC_FLAG_INIT;
 	};
 
 	class Spinlock2
@@ -99,7 +99,7 @@ public:
 
 	private:
 
-		alignas(64) std::atomic_flag _flag = ATOMIC_FLAG_INIT;
+		alignas(std::hardware_destructive_interference_size) std::atomic_flag _flag = ATOMIC_FLAG_INIT;
 	};
 
 	void Test() override
