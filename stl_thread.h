@@ -164,13 +164,18 @@ public:
 					return std::invoke(func, captured_args...);
 				});
 
+			bool wasEmpty = false;
 			std::future<ResultT> result = task->get_future();
 			{
 				std::lock_guard<std::mutex> lock(_mutex);
+				wasEmpty = _tasks.empty();
 				_tasks.emplace([task]() { (*task)(); }); // 添加任务到队列
 			}
 
-			_condition.notify_one();
+			if (_waiting_workers > 0 && wasEmpty) {
+				_condition.notify_one();
+			}
+
 			return result;
 		}
 
@@ -198,6 +203,7 @@ public:
 						Task task;
 						{
 							std::unique_lock<std::mutex> lock(_mutex);
+							++_waiting_workers;
 							_condition.wait(lock, [this]() {
 								return _stop.load() || !_tasks.empty();
 								});
@@ -205,6 +211,7 @@ public:
 							if (_stop.load())
 								return;
 
+							--_waiting_workers;
 							task = std::move(_tasks.front());
 							_tasks.pop();
 						}
@@ -227,6 +234,7 @@ public:
 		}
 
 		std::atomic_bool _stop{ true };
+		std::uint32_t _waiting_workers{ 0 };
 		std::vector<ThreadGuardJoin> _threads;
 
 		std::mutex _mutex;
