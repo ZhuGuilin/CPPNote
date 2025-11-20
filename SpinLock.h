@@ -39,8 +39,26 @@ public:
 
 	//	简单的自旋锁实现 (不支持递归锁)	
 	//	除非临界区非常短使用自旋锁能带来确定的收益，否则不建议使用自旋锁
-	//	std::mutex在高争用时会使用自旋锁+阻塞的方式来提高性能
+	//  根据本人测试后的理解，在资源高竞争环境下（>= 8线程）自旋锁可能带来意想不到的糟糕性能
+	//	std::mutex可能更稳定
 	//	考虑使用无锁数据结构替代锁
+	//	以下是来自folly库对于自旋锁的建议：
+	/*
+	 * N.B. You most likely do _not_ want to use SpinLock or any other
+	 * kind of spinlock.  Use std::mutex instead.
+	 *
+	 * In short, spinlocks in preemptive multi-tasking operating systems
+	 * have serious problems and fast mutexes like std::mutex are almost
+	 * certainly the better choice, because letting the OS scheduler put a
+	 * thread to sleep is better for system responsiveness and throughput
+	 * than wasting a timeslice repeatedly querying a lock held by a
+	 * thread that's blocked, and you can't prevent userspace
+	 * programs blocking.
+	 *
+	 * Spinlocks in an operating system kernel make much more sense than
+	 * they do in userspace.
+	 */
+
 	class Spinlock
 	{
 	public:
@@ -71,7 +89,7 @@ public:
 
 	private:
 
-		alignas(std::hardware_destructive_interference_size) std::atomic_flag _flag = ATOMIC_FLAG_INIT;
+		alignas(64) std::atomic_flag _flag = ATOMIC_FLAG_INIT;
 	};
 
 	class Spinlock2

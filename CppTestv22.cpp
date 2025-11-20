@@ -24,6 +24,9 @@
 #include "NetWork.h"
 #include "net_asio.h"
 
+#include "CpuInfo.h"
+
+
 namespace
 {
 	STL_Vector stl_vector;
@@ -41,6 +44,9 @@ namespace
 	STL_String stl_string;
 	MS_Lock ms_lock;
 	STL_Coroutine stl_coroutine;
+	CpuInfo cpu_info;
+
+
 	NetWork network;
 	net_asio asio_network;
 }

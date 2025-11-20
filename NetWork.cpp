@@ -637,6 +637,7 @@ void NetWork::Test()
 	Acceptor acceptor(service, NetWork::address_v4::any(), 8086);
 
 	std::vector<ThreadGuardJoin> threads;
+	threads.reserve(4);
 	for (int i = 0; i < 4; ++i)
 	{ 
 		threads.emplace_back(std::thread([&service, &acceptor]() {
@@ -644,97 +645,7 @@ void NetWork::Test()
 			service.run();
 			}));
 	}
-	std::this_thread::sleep_for(std::chrono::seconds(120));
+	std::this_thread::sleep_for(std::chrono::seconds(300));
 
-#if 0
-	
-	NetWork::Socket listener(service, AF_INET, NetWork::Socket::Type::TCP);
-	listener.Bind("0.0.0.0", 8086);
-	listener.Listen();
-	listener.SetAcceptPtr();
-	service.RegisterHandle(reinterpret_cast<HANDLE>(listener.Handle()), reinterpret_cast<ULONG_PTR>(&listener));
-	
-#if 1
-	// 异步接受连接
-	/*
-	auto accept_handler = [&](std::shared_ptr<Socket> client) {
-		if (!client) return;
-		
-		// 异步读取数据
-		char buffer[1024];
-		auto f = [&](std::error_code ec, size_t bytes) {
-			std::cout << "Read completed with " << ec.message() << " bytes: " << bytes << std::endl;
-			if (!ec && bytes > 0) {
-				printf("Received %zu bytes: %.*s\n",
-					bytes, static_cast<int>(bytes), buffer);
-
-				// 回显数据
-				client->AsyncWrite(buffer, bytes,
-					[](std::error_code ec, size_t bytes) {
-						if (!ec) {
-							printf("Sent %zu bytes\n", bytes);
-						}
-				});
-			}
-			else {
-				std::cout << "Client disconnected or read error: " << ec.message() << std::endl;
-			}
-		};
-
-		client->AsyncRead(buffer, sizeof(buffer), std::move(f));
-	};
-	*/
-
-	// 接受第一个连接
-	char Acceptbuf[1024];
-	std::size_t Acceptbuflen = sizeof(Acceptbuf);
-	std::shared_ptr<Socket> client = listener.AsyncAccept(Acceptbuf, Acceptbuflen, [&](std::error_code ec, size_t bytes) {
-		std::print("Accept completed with " << ec.message() << " bytes: " << bytes << std::endl;
-		
-		listener.UpdateSocket(client->Handle());
-
-		// 异步读取数据
-		char buffer[1024];
-		service.RegisterHandle(reinterpret_cast<HANDLE>(client->Handle()), reinterpret_cast<ULONG_PTR>(&client));
-		auto f = [&](std::error_code ec, size_t bytes) {
-			if (!ec && bytes > 0) {
-				printf("Received %zu bytes: %.*s\n",
-					bytes, static_cast<int>(bytes), buffer);
-
-				// 回显数据
-				client->AsyncWrite(buffer, bytes,
-					[](std::error_code ec, size_t bytes) {
-						if (!ec) {
-							printf("Sent %zu bytes\n", bytes);
-						}
-					});
-			}
-			else {
-				std::print("Client disconnected or read error : {}, socket : {}.\n", ec.message(), client->Handle());
-			}
-		};
-
-		client->AsyncRead(buffer, sizeof(buffer), std::move(f));
-	});
-
-#else
-	char Acceptbuf[1024];
-	std::size_t Acceptbuflen = sizeof(Acceptbuf);
-	
-
-#endif
-
-	/*ThreadGuardJoin task(std::thread([&service]() {
-		service.run();
-		}));
-	(void)task;*/
-
-	service.run();
-
-	/*using namespace std::chrono_literals;
-	for (;;)
-		std::this_thread::sleep_for(50ms);
-	service.Stop();*/
-#endif
 	std::print(" ===== NetWork End =====\n");
 }

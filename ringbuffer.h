@@ -1,6 +1,7 @@
 #pragma once
 
 #include <print>
+#include <assert.h>
 
 #include "observer.h"
 #include "stl_thread.h"
@@ -10,7 +11,7 @@ class RingBuffer : public Observer
 {
 public:
 
-	//	单生产者单消费者环形缓冲区
+	//	单生产单消费环形缓冲区，也可用作1写1读队列
 	template<class T>
 	class SPSCRingBuffer
 	{
@@ -151,6 +152,14 @@ public:
 		const uint32_t _size;
 		const uint32_t _mask;
 		T* const _storage;
+	};
+
+	//	多生产多消费环形缓冲区，也可用作多写多读队列、1写多读和多写1读队列
+	//	实现参考folly::MPMCQueue
+	template<class T>
+	class MPMCRingBuffer
+	{
+
 	};
 
 	struct TestData

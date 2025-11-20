@@ -148,6 +148,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Coroutine.h" />
+    <ClInclude Include="CpuInfo.h" />
     <ClInclude Include="define.h" />
     <ClInclude Include="NetWork.h" />
     <ClInclude Include="net_asio.h" />
