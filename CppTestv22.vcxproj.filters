@@ -22,10 +22,10 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="NetWork.cpp">
-      <Filter>头文件</Filter>
+      <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="net_asio.cpp">
-      <Filter>头文件</Filter>
+      <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -87,6 +87,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="CpuInfo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="concurrentqueue.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

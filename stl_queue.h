@@ -4,27 +4,23 @@
 #include <queue>
 #include "Observer.h"
 #include "ringbuffer.h"
+#include "concurrentqueue.h"
+#include "SpinLock.h"
 
 class STL_Queue : public Observer
 {
 public:
 
-	template<class T>
-	using SPSCQueue = RingBuffer::SPSCRingBuffer<T>;
-
-	template<class T>
-	using MPMCQueue = RingBuffer::MPMCRingBuffer<T>;
-
-	template<class T>
-	class MutexQueue
+	template<class T, class LockType = std::mutex>
+	class LockQueue
 	{
 	public:
 
-		MutexQueue() = default;
-		~MutexQueue() = default;
+		LockQueue() = default;
+		~LockQueue() = default;
 
-		MutexQueue(MutexQueue const&) = delete;
-		MutexQueue& operator=(MutexQueue const&) = delete;
+		LockQueue(LockQueue const&) = delete;
+		LockQueue& operator=(LockQueue const&) = delete;
 
 		void push(const T& o)
 		{
@@ -47,11 +43,8 @@ public:
 
 		bool pop(T& o)
 		{
-			if (empty()) {
-				return false;
-			}
-
 			std::unique_lock lock(_mutex);
+			if (_q.empty()) return false;
 			o = std::move(_q.front());
 			_q.pop();
 			return true;
@@ -72,8 +65,23 @@ public:
 	private:
 
 		std::queue<T> _q;
-		mutable std::mutex _mutex;
+		mutable LockType _mutex;
 	};
+
+	template<class T>
+	using MutexQueue = LockQueue<T>;
+
+	template<class T>
+	using SpinQueue = LockQueue<T, MS_Lock::Spinlock>;
+
+	template<class T>
+	using SPSCQueue = RingBuffer::SPSCRingBuffer<T>;
+
+	template<class T>
+	using MPMCQueue = RingBuffer::MPMCRingBuffer<T>;
+
+	template<class T>
+	using ConcurrentQueue = moodycamel::ConcurrentQueue<T>;
 
 	struct node
 	{
@@ -91,6 +99,7 @@ public:
 	void Test() override
 	{
 		std::print(" ===== STL_Queue Bgein =====\n");
+		using namespace std::chrono_literals;
 
 		//	std::queue 先进先出队列
 		std::queue<node> node_que;
@@ -108,6 +117,155 @@ public:
 		auto ret = mutexQ.pop(item);
 		ret = mutexQ.pop(item);
 		ret = mutexQ.pop(item);
+
+		{
+			ConcurrentQueue<node> con_que;
+			con_que.enqueue({ 33, "ConcurrentQueue" });
+			con_que.try_dequeue(item);
+
+			constexpr uint32_t test_thread_count = 4;
+			constexpr uint32_t test_count = 65536;
+			constexpr uint32_t test_total = test_thread_count * test_count;
+			std::atomic_uint_fast64_t read_count{ 0 };
+
+			std::vector<ThreadGuardJoin> producers;
+			std::vector<ThreadGuardJoin> consumers;
+			producers.reserve(test_thread_count);
+			consumers.reserve(test_thread_count);
+
+			auto start_time = std::chrono::high_resolution_clock::now();
+			auto end_time = start_time;
+			for (size_t i = 0; i < test_thread_count; i++)
+			{
+				producers.emplace_back(std::thread([&con_que]() {
+					for (int n = 0; n < test_count;) {
+						if (con_que.enqueue({ n, std::format("http://example.com/{}", n).c_str() })) {
+							++n;
+						}
+						else {
+							std::println("enqueue faild.");
+						}
+					}
+					}));
+			}
+
+			for (size_t i = 0; i < test_thread_count; i++)
+			{
+				consumers.emplace_back(std::thread([&con_que, &end_time, &test_total, &read_count]() {
+					node el;
+					for (;;) {
+						if (con_que.try_dequeue(el)) {
+							++read_count;
+						}
+						else {
+							if (test_total == read_count) {
+								end_time = std::chrono::high_resolution_clock::now();
+								break;
+							}
+						}
+					}
+					}));
+			}
+
+			std::this_thread::sleep_for(1s);
+			std::print("ConcurrentQueue test {} count, thread num {}, use {}ms.\n", test_total, test_thread_count,
+				std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());
+		}
+
+		{
+			MutexQueue<node> mutex_que;
+			constexpr uint32_t test_thread_count = 4;
+			constexpr uint32_t test_count = 65536;
+			constexpr uint32_t test_total = test_thread_count * test_count;
+			std::atomic_uint_fast64_t read_count{ 0 };
+
+			std::vector<ThreadGuardJoin> producers;
+			std::vector<ThreadGuardJoin> consumers;
+			producers.reserve(test_thread_count);
+			consumers.reserve(test_thread_count);
+
+			auto start_time = std::chrono::high_resolution_clock::now();
+			auto end_time = start_time;
+			for (size_t i = 0; i < test_thread_count; i++)
+			{
+				producers.emplace_back(std::thread([&mutex_que]() {
+					for (int n = 0; n < test_count;) {
+						mutex_que.push({ n, std::format("http://example.com/{}", n).c_str() });
+						++n;
+					}
+					}));
+			}
+
+			for (size_t i = 0; i < test_thread_count; i++)
+			{
+				consumers.emplace_back(std::thread([&mutex_que, &end_time, &test_total, &read_count]() {
+					node el;
+					for (;;) {
+						if (mutex_que.pop(el)) {
+							++read_count;
+						}
+						else {
+							if (test_total == read_count) {
+								end_time = std::chrono::high_resolution_clock::now();
+								break;
+							}
+						}
+					}
+					}));
+			}
+
+			std::this_thread::sleep_for(2s);
+			std::print("MutexQueue test {} count, thread num {}, use {}ms.\n", test_total, test_thread_count,
+				std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());
+		}
+
+		{
+			SpinQueue<node> mutex_que;
+			constexpr uint32_t test_thread_count = 4;
+			constexpr uint32_t test_count = 65536;
+			constexpr uint32_t test_total = test_thread_count * test_count;
+			std::atomic_uint_fast64_t read_count{ 0 };
+
+			std::vector<ThreadGuardJoin> producers;
+			std::vector<ThreadGuardJoin> consumers;
+			producers.reserve(test_thread_count);
+			consumers.reserve(test_thread_count);
+
+			auto start_time = std::chrono::high_resolution_clock::now();
+			auto end_time = start_time;
+			for (size_t i = 0; i < test_thread_count; i++)
+			{
+				producers.emplace_back(std::thread([&mutex_que]() {
+					for (int n = 0; n < test_count;) {
+						mutex_que.push({ n, std::format("http://example.com/{}", n).c_str() });
+						++n;
+					}
+					}));
+			}
+
+			for (size_t i = 0; i < test_thread_count; i++)
+			{
+				consumers.emplace_back(std::thread([&mutex_que, &end_time, &test_total, &read_count]() {
+					node el;
+					for (;;) {
+						if (mutex_que.pop(el)) {
+							++read_count;
+						}
+						else {
+							if (test_total == read_count) {
+								end_time = std::chrono::high_resolution_clock::now();
+								break;
+							}
+						}
+					}
+					}));
+			}
+
+			std::this_thread::sleep_for(2s);
+			std::print("SpinQueue test {} count, thread num {}, use {}ms.\n", test_total, test_thread_count,
+				std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());
+		}
+
 
 		std::print(" ===== STL_Queue End =====\n");
 	}

@@ -168,7 +168,6 @@ public:
 		uint32_t data;
 		char url[32];
 		void* ptr;
-		std::vector<int> vec;
 
 		TestData()
 			: index(0)
@@ -179,11 +178,10 @@ public:
 			//std::print("base construct.\n");
 		}
 
-		explicit TestData(int idx, uint32_t d, const char* u, void* p, std::vector<int>&& v) noexcept
+		explicit TestData(int idx, uint32_t d, const char* u, void* p) noexcept
 			: index(idx)
 			, data(d)
 			, ptr(p)
-			, vec(std::move(v))
 		{
 			std::memcpy(url, u, sizeof(url) - 1);
 			//std::print("construct TestData index : {}.\n", index);
@@ -203,7 +201,6 @@ public:
 			data = o.data;
 			ptr = o.ptr;
 			std::memcpy(url, o.url, sizeof(url) - 1);
-			vec = std::move(o.vec);
 			//std::print("move construct index : {}.\n", index);
 		}
 
@@ -213,7 +210,6 @@ public:
 			data = o.data;
 			ptr = o.ptr;
 			std::memcpy(url, o.url, sizeof(url) - 1);
-			vec = std::move(o.vec);
 			return *this;
 			//std::print("move operator= index : {}.\n", index);
 		}
@@ -228,8 +224,8 @@ public:
 			TestData item;
 
 			auto em = ringbuf.empty();
-			ringbuf.write(TestData{ 1, 100, "http://example.com/1", nullptr, {2,5,8} });
-			ringbuf.write(2, 101, "http://example.com/2", &ringbuf, std::vector<int>{77,8,20,9494});
+			ringbuf.write(TestData{ 1, 100, "http://example.com/1", nullptr });
+			ringbuf.write(2, 101, "http://example.com/2", &ringbuf);
 			em = ringbuf.empty();
 
 			ringbuf.read(item);
@@ -239,7 +235,7 @@ public:
 			std::vector<TestData> vecIn, vecOut;
 			for (int i = 0; i < 35; ++i)
 			{
-				vecIn.emplace_back(i, i * 10 + 1, "", nullptr, std::vector{ i * i });
+				vecIn.emplace_back(i, i * 10 + 1, "", nullptr);
 			}
 
 			ringbuf.write_bulk(vecIn.begin(), vecIn.end());
@@ -253,26 +249,27 @@ public:
 		{
 			SPSCRingBuffer<TestData> buffer(1024);
 			constexpr uint32_t test_count = 65536;
-			std::vector<TestData> reader;
-			reader.resize(test_count);
+			//std::vector<TestData> reader;
+			//reader.resize(test_count);
 			auto start_time = std::chrono::high_resolution_clock::now();
 			auto end_time = start_time;
 			ThreadGuardJoin producer(std::thread([&buffer]() {
 				for (int i = 0; i < test_count;)
 				{
-					if (!buffer.write(i, i, std::format("http://example.com/{}", i).c_str(), nullptr, std::vector<int>{i})) {
-						//std::this_thread::yield();
+					if (buffer.write(i, i, std::format("http://example.com/{}", i).c_str(), nullptr)) {
+						++i;
 					}
 					else {
-						++i;
+						std::println("write faild.");
 					}
 				}
 				}));
 
-			ThreadGuardJoin consumer(std::thread([&buffer, &reader, &end_time]() {
+			ThreadGuardJoin consumer(std::thread([&buffer, &end_time]() {
+				TestData item;
 				for (int i = 0;;)
 				{
-					if (buffer.read(reader[i])) {
+					if (buffer.read(item)) {
 						++i;
 						if (test_count -1 == i) {
 							end_time = std::chrono::high_resolution_clock::now();

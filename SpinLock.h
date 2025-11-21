@@ -26,11 +26,11 @@ inline void asm_volatile_pause() {
 }
 
 #if  (defined(__x86_64__) || defined(_M_X64))
-constexpr uint32_t MAX_PAUSE_COUNT{ 400 };
+constexpr uint32_t MAX_PAUSE_COUNT{ 2000 };
 #elif defined(__arm__)
-constexpr uint32_t MAX_PAUSE_COUNT{ 800 };
+constexpr uint32_t MAX_PAUSE_COUNT{ 4000 };
 #else
-constexpr uint32_t MAX_PAUSE_COUNT{ 1200 };
+constexpr uint32_t MAX_PAUSE_COUNT{ 6000 };
 #endif
 
 class MS_Lock : public Observer

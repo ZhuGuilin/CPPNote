@@ -147,6 +147,7 @@
     <ClCompile Include="Observer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="concurrentqueue.h" />
     <ClInclude Include="Coroutine.h" />
     <ClInclude Include="CpuInfo.h" />
     <ClInclude Include="define.h" />
