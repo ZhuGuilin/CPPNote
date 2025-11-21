@@ -5,7 +5,6 @@
 #include "Observer.h"
 #include "ringbuffer.h"
 #include "concurrentqueue.h"
-#include "SpinLock.h"
 
 
 class STL_Queue : public Observer

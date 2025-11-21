@@ -5,6 +5,7 @@
 
 #include "observer.h"
 #include "stl_thread.h"
+#include "SpinLock.h"
 
 
 class RingBuffer : public Observer
@@ -66,7 +67,7 @@ public:
 		{
 			const uint32_t wpos = _wpos.load(std::memory_order_relaxed);
 			const uint32_t next_wpos = wpos + 1;
-			if ((next_wpos & _mask) == (_rpos.load(std::memory_order_acquire) & _mask)) {
+			if (next_wpos - _rpos.load(std::memory_order_acquire) >= _size) {
 				return false; // full
 			}
 
@@ -154,9 +155,22 @@ public:
 		T* const _storage;
 	};
 
+	struct DefultTraits
+	{
+		static constexpr uint32_t kSpinCutoff = 2000;	//	自选等待测试次数
+		static constexpr uint32_t kSleepNs = 500;		//	睡眠时间
+	};
+
+	struct Traits1 : public DefultTraits
+	{
+		//	自定义
+		static constexpr uint32_t kSpinCutoff = 5000;
+		static constexpr uint32_t kSleepNs = 200;
+	};
+
 	//	多生产多消费环形缓冲区
 	//	实现参考folly::MPMCQueue，核心思路由整个队列的竞争 -> 单个槽位的竞争
-	template<class T>
+	template<class T, typename Traits = DefultTraits>
 	class MPMCRingBuffer
 	{
 	public:
@@ -192,44 +206,68 @@ public:
 			std::free(_storage);
 		}
 
-		bool write(const T& item)
+		void write(const T& item)
 		{
-			const uint32_t wpos = _wpos.load(std::memory_order_relaxed);
-			const uint32_t next_wpos = wpos + 1;
-			if ((next_wpos & _mask) == (_rpos.load(std::memory_order_acquire) & _mask)) {
-				return false; // full
+			//	预约一个可写的位置
+			uint64_t ticket = _wpre++;
+			uint32_t spinCount = 0;
+
+			//	等待轮到可写
+			while(_wpos.load(std::memory_order_relaxed) != ticket)
+			{
+				if (++spinCount > Traits::kSpinCutoff) {
+					std::this_thread::sleep_for(Traits::kSleepNs);
+				}
+				else {
+					asm_volatile_pause();
+				}
 			}
 
-			new (&_storage[wpos & _mask]) T(item);
-			_wpos.store(next_wpos, std::memory_order_release);
-			return true;
+			new (&_storage[ticket & _mask]) T(item);
+			_wpos.store(ticket, std::memory_order_release);
 		}
 
-		bool write(T&& item)
+		void write(T&& item)
 		{
-			const uint32_t wpos = _wpos.load(std::memory_order_relaxed);
-			const uint32_t next_wpos = wpos + 1;
-			if ((next_wpos & _mask) == (_rpos.load(std::memory_order_acquire) & _mask)) {
-				return false; // full
+			//	预约一个可写的位置
+			uint64_t ticket = _wpre++;
+			uint32_t spinCount = 0;
+
+			//	等待轮到可写
+			while (_wpos.load(std::memory_order_relaxed) != ticket)
+			{
+				if (++spinCount > Traits::kSpinCutoff) {
+					std::this_thread::sleep_for(Traits::kSleepNs);
+				}
+				else {
+					asm_volatile_pause();
+				}
 			}
 
-			new (&_storage[wpos & _mask]) T(std::forward<T>(item));
-			_wpos.store(next_wpos, std::memory_order_release);
-			return true;
+			new (&_storage[ticket & _mask]) T(std::forward<T>(item));
+			_wpos.store(ticket, std::memory_order_release);
 		}
 
 		template<typename... Args>
-		bool write(Args&&... args)
+		void write(Args&&... args)
 		{
-			const uint32_t wpos = _wpos.load(std::memory_order_relaxed);
-			const uint32_t next_wpos = wpos + 1;
-			if ((next_wpos & _mask) == (_rpos.load(std::memory_order_acquire) & _mask)) {
-				return false; // full
+			//	预约一个可写的位置
+			uint64_t ticket = _wpre++;
+			uint32_t spinCount = 0;
+
+			//	等待轮到可写
+			while (_wpos.load(std::memory_order_relaxed) != ticket)
+			{
+				if (++spinCount > Traits::kSpinCutoff) {
+					std::this_thread::sleep_for(Traits::kSleepNs);
+				}
+				else {
+					asm_volatile_pause();
+				}
 			}
 
 			new (&_storage[wpos & _mask]) T(std::forward<Args>(args)...);
 			_wpos.store(next_wpos, std::memory_order_release);
-			return true;
 		}
 
 		bool read(T& item)
@@ -264,33 +302,33 @@ public:
 			return n + 1;
 		}
 
-		//	预约一个可写的位置
-		bool pre_write(uint32_t& ticket) noexcept
-		{
-
-			return false;
-		}
 
 		//	预约一个可读的位置
-		bool pre_read(uint32_t& ticket) noexcept
+		bool pre_read(uint64_t& ticket) noexcept
 		{
+			const auto wpos = _wpos.load(std::memory_order_relaxed);
+			const auto rpre = _rpre.load(std::memory_order_relaxed);
+			if (rpos > wpos) {	//	预约读取位置不能超过当前写的位置
+				return false;
+			}
 
-			return false;
+			ticket = _rpre++;
+			return true;
 		}
 
 		static constexpr std::size_t kCacheLine = 64;
 
 		//	真实的读写位置
-		alignas(kCacheLine) std::atomic<uint32_t> _wpos;
-		alignas(kCacheLine) std::atomic<uint32_t> _rpos;
+		alignas(kCacheLine) std::atomic<uint64_t> _wpos;
+		alignas(kCacheLine) std::atomic<uint64_t> _rpos;
 
 		//	预约员，记录预约出去的位置
 		//  写预约不能超过实际可读位置，读预约不能超过实际可写位置
-		alignas(kCacheLine) std::atomic<uint32_t> _wpre;
-		alignas(kCacheLine) std::atomic<uint32_t> _rpre;
+		alignas(kCacheLine) std::atomic<uint64_t> _wpre;
+		alignas(kCacheLine) std::atomic<uint64_t> _rpre;
 
-		const uint32_t _size;
-		const uint32_t _mask;
+		const uint64_t _size;
+		const uint64_t _mask;
 		T* const _storage;
 	};
 
@@ -350,7 +388,6 @@ public:
 	{
 		std::print(" ===== RingBuffer Bgein =====\n");
 		using namespace std::chrono_literals;
-		
 		
 		{
 			SPSCRingBuffer<TestData> ringbuf(25);
