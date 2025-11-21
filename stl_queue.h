@@ -7,6 +7,7 @@
 #include "concurrentqueue.h"
 #include "SpinLock.h"
 
+
 class STL_Queue : public Observer
 {
 public:
@@ -230,6 +231,7 @@ public:
 	//	使用示列 https://github.com/cameron314/concurrentqueue/blob/master/samples.md
 	template<class T>
 	using ConcurrentQueue = moodycamel::ConcurrentQueue<T>;
+
 
 	struct node
 	{

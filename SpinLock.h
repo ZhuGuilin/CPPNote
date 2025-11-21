@@ -6,7 +6,8 @@
 #include "define.h"
 #include "Observer.h"
 
-inline void asm_volatile_pause() {
+inline void asm_volatile_pause() 
+{
 #if defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64))
 	::_mm_pause();
 #elif defined(__i386__) || (defined(__x86_64__) || defined(_M_X64)) || \

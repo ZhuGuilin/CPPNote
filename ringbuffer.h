@@ -127,6 +127,7 @@ public:
 
 		SPSCRingBuffer(SPSCRingBuffer const&) = delete;
 		SPSCRingBuffer& operator=(SPSCRingBuffer const&) = delete;
+		SPSCRingBuffer& operator=(SPSCRingBuffer&& rhs) = delete;
 
 	private:
 
@@ -166,8 +167,8 @@ public:
 			, _storage(static_cast<T*>(std::malloc(sizeof(T)* _size)))
 			, _wpos(0)
 			, _rpos(0)
-			, _wticketer(0)
-			, _rticketer(0)
+			, _wpre(0)
+			, _rpre(0)
 		{
 			static_assert(std::is_nothrow_destructible<T>::value,
 				"SPSCRingBuffer requires a nothrow destructible type");
@@ -189,6 +190,32 @@ public:
 			}
 
 			std::free(_storage);
+		}
+
+		bool write(const T& item)
+		{
+			const uint32_t wpos = _wpos.load(std::memory_order_relaxed);
+			const uint32_t next_wpos = wpos + 1;
+			if ((next_wpos & _mask) == (_rpos.load(std::memory_order_acquire) & _mask)) {
+				return false; // full
+			}
+
+			new (&_storage[wpos & _mask]) T(item);
+			_wpos.store(next_wpos, std::memory_order_release);
+			return true;
+		}
+
+		bool write(T&& item)
+		{
+			const uint32_t wpos = _wpos.load(std::memory_order_relaxed);
+			const uint32_t next_wpos = wpos + 1;
+			if ((next_wpos & _mask) == (_rpos.load(std::memory_order_acquire) & _mask)) {
+				return false; // full
+			}
+
+			new (&_storage[wpos & _mask]) T(std::forward<T>(item));
+			_wpos.store(next_wpos, std::memory_order_release);
+			return true;
 		}
 
 		template<typename... Args>
@@ -220,8 +247,22 @@ public:
 
 		MPMCRingBuffer(MPMCRingBuffer const&) = delete;
 		MPMCRingBuffer& operator=(MPMCRingBuffer const&) = delete;
+		MPMCRingBuffer& operator=(MPMCRingBuffer&& rhs) = delete;
 
 	private:
+
+		static uint32_t NextPowerOfTwo(uint32_t n) noexcept
+		{
+			if (n == 0) return 1;
+
+			n--;
+			n |= n >> 1;
+			n |= n >> 2;
+			n |= n >> 4;
+			n |= n >> 8;
+			n |= n >> 16;
+			return n + 1;
+		}
 
 		//	预约一个可写的位置
 		bool pre_write(uint32_t& ticket) noexcept
