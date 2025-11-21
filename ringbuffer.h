@@ -11,7 +11,7 @@ class RingBuffer : public Observer
 {
 public:
 
-	//	单生产单消费环形缓冲区，也可用作1写1读队列
+	//	单生产单消费环形缓冲区，1写1读队列
 	template<class T>
 	class SPSCRingBuffer
 	{
@@ -143,23 +143,114 @@ public:
 			return n + 1;
 		}
 
-		using AtomicIndex = std::atomic<uint32_t>;
 		static constexpr std::size_t kCacheLine = 64;
 
-		alignas(kCacheLine) AtomicIndex _rpos;
-		alignas(kCacheLine) AtomicIndex _wpos;
+		alignas(kCacheLine) std::atomic<uint32_t> _wpos;
+		alignas(kCacheLine) std::atomic<uint32_t> _rpos;
 
 		const uint32_t _size;
 		const uint32_t _mask;
 		T* const _storage;
 	};
 
-	//	多生产多消费环形缓冲区，也可用作多写多读队列、1写多读和多写1读队列
-	//	实现参考folly::MPMCQueue
+	//	多生产多消费环形缓冲区
+	//	实现参考folly::MPMCQueue，核心思路由整个队列的竞争 -> 单个槽位的竞争
 	template<class T>
 	class MPMCRingBuffer
 	{
+	public:
 
+		explicit MPMCRingBuffer(uint32_t capacity = 2048)
+			: _size(NextPowerOfTwo(capacity))
+			, _mask(_size - 1)
+			, _storage(static_cast<T*>(std::malloc(sizeof(T)* _size)))
+			, _wpos(0)
+			, _rpos(0)
+			, _wticketer(0)
+			, _rticketer(0)
+		{
+			static_assert(std::is_nothrow_destructible<T>::value,
+				"SPSCRingBuffer requires a nothrow destructible type");
+			assert(_size >= 2 && "SPSCRingBuffer size must be at least 2");
+			if (_storage == nullptr)
+			{
+				throw std::bad_alloc();
+			}
+		}
+
+		~MPMCRingBuffer()
+		{
+			uint32_t rpos = _rpos.load(std::memory_order_relaxed);
+			const uint32_t wpos = _wpos.load(std::memory_order_relaxed);
+			while (rpos != wpos)
+			{
+				_storage[rpos & _mask].~T();
+				++rpos;
+			}
+
+			std::free(_storage);
+		}
+
+		template<typename... Args>
+		bool write(Args&&... args)
+		{
+			const uint32_t wpos = _wpos.load(std::memory_order_relaxed);
+			const uint32_t next_wpos = wpos + 1;
+			if ((next_wpos & _mask) == (_rpos.load(std::memory_order_acquire) & _mask)) {
+				return false; // full
+			}
+
+			new (&_storage[wpos & _mask]) T(std::forward<Args>(args)...);
+			_wpos.store(next_wpos, std::memory_order_release);
+			return true;
+		}
+
+		bool read(T& item)
+		{
+			const uint32_t rpos = _rpos.load(std::memory_order_relaxed);
+			if (rpos == _wpos.load(std::memory_order_acquire)) {
+				return false; // empty
+			}
+
+			item = std::move(_storage[rpos & _mask]);
+			_storage[rpos & _mask].~T();
+			_rpos.store(rpos + 1, std::memory_order_release);
+			return true;
+		}
+
+		MPMCRingBuffer(MPMCRingBuffer const&) = delete;
+		MPMCRingBuffer& operator=(MPMCRingBuffer const&) = delete;
+
+	private:
+
+		//	预约一个可写的位置
+		bool pre_write(uint32_t& ticket) noexcept
+		{
+
+			return false;
+		}
+
+		//	预约一个可读的位置
+		bool pre_read(uint32_t& ticket) noexcept
+		{
+
+			return false;
+		}
+
+		static constexpr std::size_t kCacheLine = 64;
+
+		//	真实的读写位置
+		alignas(kCacheLine) std::atomic<uint32_t> _wpos;
+		alignas(kCacheLine) std::atomic<uint32_t> _rpos;
+
+		//	预约员，记录预约出去的位置
+		//  写预约不能超过实际可读位置，读预约不能超过实际可写位置
+		alignas(kCacheLine) std::atomic<uint32_t> _wpre;
+		alignas(kCacheLine) std::atomic<uint32_t> _rpre;
+
+		const uint32_t _size;
+		const uint32_t _mask;
+		T* const _storage;
 	};
 
 	struct TestData
@@ -218,7 +309,8 @@ public:
 	{
 		std::print(" ===== RingBuffer Bgein =====\n");
 		using namespace std::chrono_literals;
-
+		
+		
 		{
 			SPSCRingBuffer<TestData> ringbuf(25);
 			TestData item;
@@ -249,8 +341,7 @@ public:
 		{
 			SPSCRingBuffer<TestData> buffer(1024);
 			constexpr uint32_t test_count = 65536;
-			//std::vector<TestData> reader;
-			//reader.resize(test_count);
+			
 			auto start_time = std::chrono::high_resolution_clock::now();
 			auto end_time = start_time;
 			ThreadGuardJoin producer(std::thread([&buffer]() {
@@ -276,13 +367,10 @@ public:
 							break;
 						}
 					}
-					else {
-						//std::this_thread::yield();
-					}
 				}
 				}));
 
-			std::this_thread::sleep_for(2s);
+			std::this_thread::sleep_for(1s);
 			std::print("spsc ringbuffer test write and read {} count, use {}ms.\n", test_count, 
 				std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());
 		}

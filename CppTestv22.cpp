@@ -29,6 +29,7 @@
 
 namespace
 {
+	CpuInfo cpu_info;
 	STL_Vector stl_vector;
 	STL_UniquePtr stl_uniqueptr;
 	STL_SharedPtr stl_sharedptr;
@@ -44,8 +45,6 @@ namespace
 	STL_String stl_string;
 	MS_Lock ms_lock;
 	STL_Coroutine stl_coroutine;
-	CpuInfo cpu_info;
-
 
 	NetWork network;
 	net_asio asio_network;

@@ -228,12 +228,9 @@ public:
 
 	void Test() override
 	{
-		std::println(" ===== CpuInfo Bgein =====");
-		
 		auto info = moodycamel::GetCPUString();
 		std::println("cpu info :{}", info);
 		//	12th Gen Intel(R) Core(TM) i5-12400F with 6 cores (HyperThreaded) @ 2.5GHz
 
-		std::println(" ===== CpuInfo End =====");
 	}
 };
