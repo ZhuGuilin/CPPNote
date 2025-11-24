@@ -210,7 +210,7 @@ public:
 	template<class T>
 	using MutexQueue = LockQueue<T>;
 
-	//	也许好一些，不够稳定
+	//	也许好一些，不够稳定		!!（spinlock 有BUG）
 	template<class T>
 	using SpinQueue = LockQueue<T, MS_Lock::Spinlock>;
 
@@ -222,7 +222,7 @@ public:
 	template<typename T, std::atomic<T*> T::* IntrusiveLink = nullptr>
 	using MPSCQueue = std::conditional_t<IntrusiveLink != nullptr, MPSCQueueIntrusive<T, IntrusiveLink>, MPSCQueueNonIntrusive<T>>;
 
-	//	无锁 环形队列 多写多读，遵循FIFO原则
+	//	无锁 环形队列 多写多读，遵循FIFO原则   !!(错误的实现)
 	template<class T>
 	using MPMCQueue = RingBuffer::MPMCRingBuffer<T>;
 
@@ -364,6 +364,8 @@ public:
 		}
 
 		{
+			//	spinlock有BUG  
+			/*
 			SpinQueue<node> spin_que;
 			read_count = 0;
 			producers.clear();
@@ -402,6 +404,50 @@ public:
 			std::this_thread::sleep_for(1s);
 			std::print("SpinQueue test {} count, thread num {}, use {}ms.\n", test_total, test_thread_count,
 				std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());
+			*/
+		}
+
+		{
+			//	MPMCQueue 错误的实现
+
+			//MPMCQueue<node> mpmc_que(128);
+			//read_count = 0;
+			//producers.clear();
+			//consumers.clear();
+
+			//auto start_time = std::chrono::high_resolution_clock::now();
+			//auto end_time = start_time;
+			//for (size_t i = 0; i < test_thread_count; i++)
+			//{
+			//	producers.emplace_back(std::thread([&mpmc_que]() {
+			//		for (int n = 0; n < 256;) {
+			//			mpmc_que.write(n, std::format("http://example.com/{}", n).c_str() );
+			//			++n;
+			//		}
+			//		}));
+			//}
+
+			//for (size_t i = 0; i < test_thread_count; i++)
+			//{
+			//	consumers.emplace_back(std::thread([&mpmc_que, &end_time, &test_total, &read_count]() {
+			//		node el;
+			//		for (;;) {
+			//			if (mpmc_que.read(el)) {
+			//				++read_count;
+			//			}
+			//			else {
+			//				if (1024 == read_count) {
+			//					end_time = std::chrono::high_resolution_clock::now();
+			//					break;
+			//				}
+			//			}
+			//		}
+			//		}));
+			//}
+
+			//std::this_thread::sleep_for(1s);
+			//std::print("MPMCQueue test {} count, thread num {}, use {}ms.\n", test_total, test_thread_count,
+			//	std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());
 		}
 
 

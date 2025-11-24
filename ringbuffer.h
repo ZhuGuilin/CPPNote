@@ -158,14 +158,14 @@ public:
 	struct DefultTraits
 	{
 		static constexpr uint32_t kSpinCutoff = 2000;	//	自选等待测试次数
-		static constexpr uint32_t kSleepNs = 500;		//	睡眠时间
+		static constexpr std::chrono::nanoseconds kSleepNs{ 200 };		//	睡眠时间
 	};
 
 	struct Traits1 : public DefultTraits
 	{
 		//	自定义
 		static constexpr uint32_t kSpinCutoff = 5000;
-		static constexpr uint32_t kSleepNs = 200;
+		static constexpr std::chrono::nanoseconds kSleepNs{ 200 };
 	};
 
 	//	多生产多消费环形缓冲区
@@ -195,8 +195,8 @@ public:
 
 		~MPMCRingBuffer()
 		{
-			uint32_t rpos = _rpos.load(std::memory_order_relaxed);
-			const uint32_t wpos = _wpos.load(std::memory_order_relaxed);
+			uint64_t rpos = _rpos.load(std::memory_order_relaxed);
+			const uint64_t wpos = _wpos.load(std::memory_order_relaxed);
 			while (rpos != wpos)
 			{
 				_storage[rpos & _mask].~T();
@@ -224,7 +224,7 @@ public:
 			}
 
 			new (&_storage[ticket & _mask]) T(item);
-			_wpos.store(ticket, std::memory_order_release);
+			_wpos.store(ticket + 1, std::memory_order_release);
 		}
 
 		void write(T&& item)
@@ -245,7 +245,7 @@ public:
 			}
 
 			new (&_storage[ticket & _mask]) T(std::forward<T>(item));
-			_wpos.store(ticket, std::memory_order_release);
+			_wpos.store(ticket + 1, std::memory_order_release);
 		}
 
 		template<typename... Args>
@@ -255,9 +255,14 @@ public:
 			uint64_t ticket = _wpre++;
 			uint32_t spinCount = 0;
 
+			//std::print("thread id: {}, pre write ticket: {}.\n", std::this_thread::get_id(), ticket);
+			//std::this_thread::sleep_for(1s);
+
 			//	等待轮到可写
-			while (_wpos.load(std::memory_order_relaxed) != ticket)
+			while (_wpos.load(std::memory_order_acquire) != ticket)
 			{
+				//std::print("thread id: {}, waitting write [{} : {}].\n", 
+				//	std::this_thread::get_id(), _wpos.load(std::memory_order_relaxed), ticket);
 				if (++spinCount > Traits::kSpinCutoff) {
 					std::this_thread::sleep_for(Traits::kSleepNs);
 				}
@@ -266,20 +271,40 @@ public:
 				}
 			}
 
-			new (&_storage[wpos & _mask]) T(std::forward<Args>(args)...);
-			_wpos.store(next_wpos, std::memory_order_release);
+			//std::print("thread id: {}, writting ticket: {}.\n", std::this_thread::get_id(), ticket);
+			new (&_storage[ticket & _mask]) T(std::forward<Args>(args)...);
+			_wpos.store(ticket + 1, std::memory_order_release);
 		}
 
 		bool read(T& item)
 		{
-			const uint32_t rpos = _rpos.load(std::memory_order_relaxed);
-			if (rpos == _wpos.load(std::memory_order_acquire)) {
-				return false; // empty
+			const uint64_t rpre = _rpre.load(std::memory_order_acquire);
+			if (rpre == _wpos.load(std::memory_order_acquire)) {
+				//std::print("thread id: {}, pre read faild, pre is full: {}.\n", std::this_thread::get_id(), rpre);
+				return false; // 预约满了
 			}
 
-			item = std::move(_storage[rpos & _mask]);
-			_storage[rpos & _mask].~T();
-			_rpos.store(rpos + 1, std::memory_order_release);
+			uint64_t ticket = _rpre++;
+			uint32_t spinCount = 0;
+			//std::print("thread id: {}, pre read ticket: {}.\n", std::this_thread::get_id(), ticket);
+
+			//	等待轮到可读
+			while (_rpos.load(std::memory_order_acquire) != ticket)
+			{
+				//std::print("thread id: {}, waitting read [{} : {}].\n", 
+				//	std::this_thread::get_id(), _rpos.load(std::memory_order_relaxed), ticket);
+				if (++spinCount > Traits::kSpinCutoff) {
+					std::this_thread::sleep_for(Traits::kSleepNs);
+				}
+				else {
+					asm_volatile_pause();
+				}
+			}
+
+			item = std::move(_storage[ticket & _mask]);
+			_storage[ticket & _mask].~T();
+			_rpos.store(ticket + 1, std::memory_order_release);
+			//std::print("thread id: {}, reading ticket: {} data: {}.\n", std::this_thread::get_id(), ticket, item.data);
 			return true;
 		}
 
@@ -300,20 +325,6 @@ public:
 			n |= n >> 8;
 			n |= n >> 16;
 			return n + 1;
-		}
-
-
-		//	预约一个可读的位置
-		bool pre_read(uint64_t& ticket) noexcept
-		{
-			const auto wpos = _wpos.load(std::memory_order_relaxed);
-			const auto rpre = _rpre.load(std::memory_order_relaxed);
-			if (rpos > wpos) {	//	预约读取位置不能超过当前写的位置
-				return false;
-			}
-
-			ticket = _rpre++;
-			return true;
 		}
 
 		static constexpr std::size_t kCacheLine = 64;
