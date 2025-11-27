@@ -26,26 +26,26 @@ public:
 
 		void push(const T& value)
 		{
-			std::unique_lock lock(_mutex);
+			std::lock_guard<LockType> lock(_lock);
 			_q.push(value);
 		}
 
 		void push(T&& value)
 		{
-			std::unique_lock lock(_mutex);
+			std::lock_guard<LockType> lock(_lock);
 			_q.push(std::move(value));
 		}
 
 		template<typename... Args>
 		void emplace(Args&&... args)
 		{
-			std::unique_lock lock(_mutex);
+			std::lock_guard<LockType> lock(_lock);
 			_q.emplace(std::forward<Args>(args)...);
 		}
 
 		bool pop(T& o)
 		{
-			std::unique_lock lock(_mutex);
+			std::lock_guard<LockType> lock(_lock);
 			if (_q.empty()) return false;
 			o = std::move(_q.front());
 			_q.pop();
@@ -54,20 +54,20 @@ public:
 
 		std::size_t size() const noexcept
 		{
-			std::unique_lock lock(_mutex);
+			std::lock_guard<LockType> lock(_lock);
 			return _q.size();
 		}
 
 		bool empty() const noexcept
 		{
-			std::unique_lock lock(_mutex);
+			std::lock_guard<LockType> lock(_lock);
 			return _q.empty();
 		}
 
 	private:
 
 		std::queue<T> _q;
-		mutable LockType _mutex;
+		mutable LockType _lock;
 	};
 
 	template<typename T>
@@ -212,7 +212,7 @@ public:
 	template<class T>
 	using MutexQueue = LockQueue<T>;
 
-	//	也许好一些，不够稳定		!!（spinlock 有BUG）
+	//	也许好一些，不够稳定
 	template<class T>
 	using SpinQueue = LockQueue<T, MS_Lock::Spinlock>;
 
@@ -251,7 +251,7 @@ public:
 	{
 		std::print(" ===== STL_Queue Bgein =====\n");
 		using namespace std::chrono_literals;
-
+		
 		//	std::queue 先进先出队列
 		std::queue<node> node_que;
 		node_que.push({ 1, ""});
@@ -366,8 +366,6 @@ public:
 		}
 
 		{
-			//	spinlock有BUG  
-			/*
 			SpinQueue<node> spin_que;
 			read_count = 0;
 			producers.clear();
@@ -406,7 +404,6 @@ public:
 			std::this_thread::sleep_for(1s);
 			std::print("SpinQueue test {} count, thread num {}, use {}ms.\n", test_total, test_thread_count,
 				std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());
-			*/
 		}
 
 		{
