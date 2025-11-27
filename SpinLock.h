@@ -67,7 +67,7 @@ public:
 		void lock() noexcept {
 			uint32_t count = 0;
 			while (_flag.test_and_set(std::memory_order_acquire)) {
-				if (count++ <= MAX_PAUSE_COUNT) {
+				if (count++ < MAX_PAUSE_COUNT) {
 					asm_volatile_pause();
 				}
 				else {

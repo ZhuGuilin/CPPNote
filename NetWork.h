@@ -3,6 +3,7 @@
 #include <functional>
 #include <handleapi.h>
 #include <minwinbase.h>
+#include <winsock.h>
 
 #include "Observer.h"
 

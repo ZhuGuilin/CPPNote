@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include <print>
 #include <thread>
 #include <chrono>
@@ -12,6 +11,7 @@
 #include <type_traits>
 
 #include "Observer.h"
+
 
 thread_local int thread_specific = 0;	// 每个线程独立副本
 void worker1(int id, std::string& str)
@@ -97,7 +97,7 @@ public:
 			//	通过配置获取线程数量
 			//	...
 			using namespace std::chrono_literals;
-			const int num_cpu = max(1u, std::thread::hardware_concurrency()) / 2;
+			const int num_cpu = std::max(1u, std::thread::hardware_concurrency()) / 2;
 			_threads.reserve(num_cpu);
 			for (int i = 0; i < num_cpu; i++)
 			{
@@ -191,7 +191,7 @@ public:
 			//	通过配置获取线程数量
 			//	...
 			using namespace std::chrono_literals;
-			const int num_cpu = max(1u, std::thread::hardware_concurrency()) / 2;
+			const int num_cpu = std::max(1u, std::thread::hardware_concurrency()) / 2;
 			_threads.reserve(num_cpu);
 			_stop.store(false);
 

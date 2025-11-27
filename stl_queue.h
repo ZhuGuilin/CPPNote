@@ -6,6 +6,8 @@
 #include "ringbuffer.h"
 #include "concurrentqueue.h"
 
+//#include "folly/MPMCQueue.h"
+
 
 class STL_Queue : public Observer
 {
@@ -222,9 +224,9 @@ public:
 	template<typename T, std::atomic<T*> T::* IntrusiveLink = nullptr>
 	using MPSCQueue = std::conditional_t<IntrusiveLink != nullptr, MPSCQueueIntrusive<T, IntrusiveLink>, MPSCQueueNonIntrusive<T>>;
 
-	//	无锁 环形队列 多写多读，遵循FIFO原则   !!(错误的实现)
-	template<class T>
-	using MPMCQueue = RingBuffer::MPMCRingBuffer<T>;
+	//	folly 无锁 环形队列 多写多读，遵循FIFO原则 !!!(测试会崩溃)
+	//template<class T>
+	//using MPMCQueue = folly::MPMCQueue<T>;
 
 	//	无锁 块+环形队列 多写多读，遵循FIFO原则。
 	//	使用示列 https://github.com/cameron314/concurrentqueue/blob/master/samples.md
@@ -408,46 +410,46 @@ public:
 		}
 
 		{
-			//	MPMCQueue 错误的实现
+			/*MPMCQueue<node> mpmc_que;
+			read_count = 0;
+			producers.clear();
+			consumers.clear();
 
-			//MPMCQueue<node> mpmc_que(128);
-			//read_count = 0;
-			//producers.clear();
-			//consumers.clear();
+			auto start_time = std::chrono::high_resolution_clock::now();
+			auto end_time = start_time;
+			for (size_t i = 0; i < test_thread_count; i++)
+			{
+				producers.emplace_back(std::thread([&mpmc_que]() {
+					node el;
+					for (int n = 0; n < test_count;) {
+						el = { n, std::format("http://example.com/{}", n).c_str() };
+						mpmc_que.blockingWrite(el);
+						++n;
+					}
+					}));
+			}
 
-			//auto start_time = std::chrono::high_resolution_clock::now();
-			//auto end_time = start_time;
-			//for (size_t i = 0; i < test_thread_count; i++)
-			//{
-			//	producers.emplace_back(std::thread([&mpmc_que]() {
-			//		for (int n = 0; n < 256;) {
-			//			mpmc_que.write(n, std::format("http://example.com/{}", n).c_str() );
-			//			++n;
-			//		}
-			//		}));
-			//}
+			for (size_t i = 0; i < test_thread_count; i++)
+			{
+				consumers.emplace_back(std::thread([&mpmc_que, &end_time, &test_total, &read_count]() {
+					node el;
+					for (;;) {
+						if (mpmc_que.read(el)) {
+							++read_count;
+						}
+						else {
+							if (test_total == read_count) {
+								end_time = std::chrono::high_resolution_clock::now();
+								break;
+							}
+						}
+					}
+					}));
+			}
 
-			//for (size_t i = 0; i < test_thread_count; i++)
-			//{
-			//	consumers.emplace_back(std::thread([&mpmc_que, &end_time, &test_total, &read_count]() {
-			//		node el;
-			//		for (;;) {
-			//			if (mpmc_que.read(el)) {
-			//				++read_count;
-			//			}
-			//			else {
-			//				if (1024 == read_count) {
-			//					end_time = std::chrono::high_resolution_clock::now();
-			//					break;
-			//				}
-			//			}
-			//		}
-			//		}));
-			//}
-
-			//std::this_thread::sleep_for(1s);
-			//std::print("MPMCQueue test {} count, thread num {}, use {}ms.\n", test_total, test_thread_count,
-			//	std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());
+			std::this_thread::sleep_for(1s);
+			std::print("folly::MPMCQueue test {} count, thread num {}, use {}ms.\n", test_total, test_thread_count,
+				std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());*/
 		}
 
 

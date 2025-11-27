@@ -2,6 +2,7 @@
 //	引入需要测试的文件
 #include <windows.h>
 
+#include "stl_bits.h"
 #include "stl_vector.h"
 #include "stl_map.h"
 #include "stl_set.h"
@@ -20,6 +21,7 @@
 #include "MemoryPool.h"
 #include "ringbuffer.h"
 #include "SpinLock.h"
+#include "Timer.h"
 
 #include "NetWork.h"
 #include "net_asio.h"
@@ -30,6 +32,8 @@
 namespace
 {
 	CpuInfo cpu_info;
+
+	STL_Bits stl_bits;
 	STL_Vector stl_vector;
 	STL_UniquePtr stl_uniqueptr;
 	STL_SharedPtr stl_sharedptr;
@@ -44,6 +48,7 @@ namespace
 	STL_Thread stl_thread;
 	STL_String stl_string;
 	MS_Lock ms_lock;
+	TimeDevice time_device;
 	STL_Coroutine stl_coroutine;
 
 	NetWork network;

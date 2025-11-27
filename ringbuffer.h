@@ -82,7 +82,7 @@ public:
 			const uint32_t wpos = _wpos.load(std::memory_order_relaxed);
 			const uint32_t rpos = _rpos.load(std::memory_order_acquire);
 			const uint32_t cap = capacity() - (wpos - rpos);
-			const uint32_t num = min(count, cap);
+			const uint32_t num = std::min(count, cap);
 			for (uint32_t i = 0; i < num; ++i) {
 				new (&_storage[(wpos + i) & _mask]) T(std::move(*begin++));
 			}
@@ -116,7 +116,7 @@ public:
 			const uint32_t rpos = _rpos.load(std::memory_order_relaxed);
 			const uint32_t wpos = _wpos.load(std::memory_order_acquire);
 			const uint32_t has = wpos - rpos;
-			const uint32_t num = min(count, has);
+			const uint32_t num = std::min(count, has);
 			for (uint32_t i = 0; i < num; ++i) {
 				*begin++ = std::move(_storage[(rpos + i) & _mask]);
 				_storage[(rpos + i) & _mask].~T();
@@ -284,6 +284,7 @@ public:
 				return false; // 预约满了
 			}
 
+			// !!! 这里可能会有多个线程进来，而此时_wpos可能只比_repre大1 进而发生预约和读取不再受限制
 			uint64_t ticket = _rpre++;
 			uint32_t spinCount = 0;
 			//std::print("thread id: {}, pre read ticket: {}.\n", std::this_thread::get_id(), ticket);
