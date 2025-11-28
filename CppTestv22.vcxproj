@@ -158,6 +158,7 @@
     <ClInclude Include="ringbuffer.h" />
     <ClInclude Include="SpinLock.h" />
     <ClInclude Include="stl_bind_invoke.h" />
+    <ClInclude Include="stl_bits.h" />
     <ClInclude Include="stl_future.h" />
     <ClInclude Include="stl_list.h" />
     <ClInclude Include="stl_map.h" />

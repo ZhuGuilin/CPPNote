@@ -114,7 +114,8 @@ public:
 		struct Node
 		{
 			Node() = default;
-			explicit Node(T* data) : Data(data)
+			explicit Node(T* data) noexcept
+				: Data(data)
 			{
 				Next.store(nullptr, std::memory_order_relaxed);
 			}
@@ -136,7 +137,9 @@ public:
 		using Atomic = std::atomic<T*>;
 
 	public:
-		MPSCQueueIntrusive() : _dummy(), _dummyPtr(reinterpret_cast<T*>(_dummy.data())), _head(_dummyPtr), _tail(_dummyPtr)
+
+		MPSCQueueIntrusive() 
+			: _dummy(), _dummyPtr(reinterpret_cast<T*>(_dummy.data())), _head(_dummyPtr), _tail(_dummyPtr)
 		{
 			// _dummy is constructed from raw byte array and is intentionally left uninitialized (it might not be default constructible)
 			// so we init only its IntrusiveLink here
@@ -198,6 +201,7 @@ public:
 		}
 
 	private:
+
 		alignas(T) std::array<std::byte, sizeof(T)> _dummy;
 		T* _dummyPtr;
 		Atomic _head;

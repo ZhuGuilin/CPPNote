@@ -10,7 +10,9 @@ public:
 
 	struct node
 	{
-		int data;
+		int  key;
+		int  version;
+		int* data;
 	};
 
 	void Test() override
