@@ -4,6 +4,7 @@
 #include <array>
 #include <limits>
 #include <bit>
+#include <bitset>
 #include <assert.h>
 #include <format>
 
@@ -274,6 +275,39 @@ public:
 		std::array<AtomicBlockType, kNumBlocks> _bits;
 	};
 
+	template<std::size_t N>
+	class A
+	{
+	public:
+
+		inline void set(std::size_t n)
+		{
+			_bits |= (1ull << n);
+		}
+
+	private:
+
+		std::uint64_t _bits;
+	};
+
+	template<std::size_t N>
+	class B
+	{
+	public:
+
+		inline void set(std::size_t n);
+
+	private:
+
+		std::uint64_t _bits;
+	};
+
+	template<std::size_t N>
+	inline void B<N>::set(std::size_t n)
+	{
+		_bits |= (1ull << n);
+	}
+
 
 	void Test() override
 	{
@@ -288,9 +322,8 @@ public:
 		v = 0u;
 		std::println("std::countr_zero ~0u : {}", std::countr_zero(v));
 
-		auto len = sizeof(unsigned long long);
-		len = sizeof(unsigned long);
-		len = sizeof(unsigned int);
+		std::bitset<200> bits;  // 自动处理多块存储
+		bits.set(65);           // 安全的边界检查
 
 		BitSet<256> bitset;
 		bitset.set(3);
