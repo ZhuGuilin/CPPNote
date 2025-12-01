@@ -73,7 +73,7 @@ public:
 					return (i << kBitsPerBlockLog2) + n;
 				}
 			}
-
+			
 			return -1;
 		}
 
@@ -134,12 +134,12 @@ public:
 			return true;
 		}
 
-		inline constexpr size_t size() const noexcept 
+		inline constexpr std::size_t size() const noexcept
 		{ 
 			return N;
 		}
 
-		bool operator[](std::size_t n) const noexcept
+		inline bool operator[](std::size_t n) const noexcept
 		{
 			return test(n);
 		}
@@ -147,10 +147,10 @@ public:
 	private:
 
 		using BlockType = std::uint64_t;
-		static constexpr size_t kBitsPerBlock = std::numeric_limits<BlockType>::digits;
-		static constexpr size_t kBitsPerBlockMask = kBitsPerBlock - 1;
-		static constexpr size_t kBitsPerBlockLog2 = std::countr_zero(kBitsPerBlock);
-		static constexpr size_t kBlockNum = (N + kBitsPerBlockMask) / kBitsPerBlock;
+		static constexpr std::size_t kBitsPerBlock = std::numeric_limits<BlockType>::digits;
+		static constexpr std::size_t kBitsPerBlockMask = kBitsPerBlock - 1;
+		static constexpr std::size_t kBitsPerBlockLog2 = std::countr_zero(kBitsPerBlock);
+		static constexpr std::size_t kBlockNum = (N + kBitsPerBlockMask) / kBitsPerBlock;
 
 		inline static constexpr std::size_t index(const std::size_t bit) noexcept
 		{ 
@@ -176,7 +176,7 @@ public:
 	 * Formerly known as AtomicBitSet. It was renamed while fixing a bug
 	 * to avoid any silent breakages during run time.
 	 */
-	template <size_t N>
+	template <std::size_t N>
 	class ConcurrentBitSet 
 	{
 	public:
@@ -189,55 +189,57 @@ public:
 		ConcurrentBitSet& operator=(const ConcurrentBitSet&) = delete;
 
 		/**
-		 * Set bit idx to true, using the given memory order. Returns the
+		 * Set bit n to true, using the given memory order. Returns the
 		 * previous value of the bit.
 		 *
 		 * Note that the operation is a read-modify-write operation due to the use
 		 * of fetch_or.
 		 */
-		inline bool set(size_t idx, std::memory_order order = std::memory_order_seq_cst) noexcept
+		inline bool set(std::size_t n, std::memory_order order = std::memory_order_seq_cst) noexcept
 		{
-			assert(idx < N);
-			BlockType mask = kOne << offset(idx);
-			return _bits[index(idx)].fetch_or(mask, order) & mask;
+			assert(n < N);
+			BlockType mask = kOne << offset(n);
+			return _bits[index(n)].fetch_or(mask, order) & mask;
 		}
 
 		/**
-		 * Set bit idx to false, using the given memory order. Returns the
+		 * Set bit n to false, using the given memory order. Returns the
 		 * previous value of the bit.
 		 *
 		 * Note that the operation is a read-modify-write operation due to the use
 		 * of fetch_and.
 		 */
-		inline bool reset(size_t idx, std::memory_order order = std::memory_order_seq_cst) noexcept
+		inline bool reset(std::size_t n, std::memory_order order = std::memory_order_seq_cst) noexcept
 		{
-			assert(idx < N);
-			BlockType mask = kOne << offset(idx);
-			return _bits[index(idx)].fetch_and(~mask, order) & mask;
+			assert(n < N);
+			BlockType mask = kOne << offset(n);
+			return _bits[index(n)].fetch_and(~mask, order) & mask;
 		}
 
 		/**
-		 * Read bit idx.
+		 * Read bit n.
 		 */
-		inline bool test(size_t idx, std::memory_order order = std::memory_order_seq_cst) const noexcept 
+		inline bool test(std::size_t n, std::memory_order order = std::memory_order_acquire) const noexcept
 		{
-			assert(idx < N);
-			BlockType mask = kOne << offset(idx);
-			return _bits[index(idx)].load(order) & mask;
+			assert(n < N);
+			return _bits[index(n)].load(order) & (kOne << offset(n));
 		}
 
 		/**
 		 * Same as test() with the default memory order.
 		 */
-		bool operator[](size_t idx) const noexcept
+		inline bool operator[](std::size_t n) const noexcept
 		{
-			return test(idx);
+			return test(n);
 		}
 
 		/**
 		 * Return the size of the bitset.
 		 */
-		inline constexpr size_t size() const noexcept{ return N; }
+		inline constexpr std::size_t size() const noexcept
+		{ 
+			return N;
+		}
 
 	private:
 
@@ -253,17 +255,17 @@ public:
 		typedef std::atomic<BlockType> AtomicBlockType;
 
 		static constexpr BlockType kOne = 1;
-		static constexpr size_t kBitsPerBlock = std::numeric_limits<BlockType>::digits;
-		static constexpr size_t kBitsPerBlockMask = kBitsPerBlock - 1;
-		static constexpr size_t kBitsPerBlockLog2 = std::countr_zero(kBitsPerBlock);
-		static constexpr size_t kNumBlocks = (N + kBitsPerBlockMask) / kBitsPerBlock;
+		static constexpr std::size_t kBitsPerBlock = std::numeric_limits<BlockType>::digits;
+		static constexpr std::size_t kBitsPerBlockMask = kBitsPerBlock - 1;
+		static constexpr std::size_t kBitsPerBlockLog2 = std::countr_zero(kBitsPerBlock);
+		static constexpr std::size_t kNumBlocks = (N + kBitsPerBlockMask) / kBitsPerBlock;
 
-		static constexpr size_t index(size_t bit) noexcept 
+		static constexpr std::size_t index(std::size_t bit) noexcept
 		{ 
 			return bit >> kBitsPerBlockLog2;
 		}
 
-		static constexpr size_t offset(size_t bit) noexcept 
+		static constexpr std::size_t offset(std::size_t bit) noexcept
 		{
 			return bit & kBitsPerBlockMask;
 		}
