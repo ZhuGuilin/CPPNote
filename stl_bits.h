@@ -11,6 +11,28 @@
 #include "Observer.h"
 
 
+#ifdef __GNUC__
+#define POPCNT __builtin_popcountll
+#elif defined(_MSC_VER)
+#include <intrin.h>
+#define POPCNT __popcnt64
+#else
+uint64_t POPCNT(uint64_t x) {
+	// 每2位为一组，分别计算其中的1的个数
+	x = x - ((x >> 1) & 0x5555555555555555ull);
+
+	// 将相邻两组的计数相加，得到每4位一组的计数
+	x = (x & 0x3333333333333333ull) + ((x >> 2) & 0x3333333333333333ull);
+
+	// 将相邻四组的计数相加，得到每8位一组的计数
+	x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0Full;
+
+	// 通过乘法将所有8位组的计数相加到最高字节
+	return (x * 0x0101010101010101ull) >> 56;
+}
+#endif
+
+
 class STL_Bits : public Observer
 {
 public:
@@ -22,7 +44,7 @@ public:
 	public:
 
 		BitSet() : _bits() {
-			static_assert((N % kBitsPerBlock) == 0, "N must be a multiple of 64.");
+			static_assert(N != 0 && (N % kBitsPerBlock) == 0, "N must be a multiple of 64.");
 		}
 
 		~BitSet() = default;
@@ -106,16 +128,54 @@ public:
 			return -1;
 		}
 
+		inline void set_all() noexcept
+		{
+			for (auto& v : _bits)
+			{
+				v = std::numeric_limits<BlockType>::max();
+			}
+		}
+
 		inline void reset_all() noexcept
 		{
-			std::memset(_bits.data(), 0, sizeof(BlockType) * kBlockNum);
+			for (auto& v : _bits)
+			{
+				v = 0ull;
+			}
+		}
+
+		//	反转所有位
+		inline void flip() noexcept
+		{
+			for (auto& v : _bits)
+			{
+				v = ~v;
+			}
+		}
+
+		//	按位或合并
+		inline void for_or(const BitSet<N>& other) noexcept
+		{
+			for (std::size_t i = 0; i < kBlockNum; ++i)
+			{
+				_bits[i] |= other._bits[i];
+			}
+		}
+
+		//	按位与合并
+		inline void for_and(const BitSet<N>& other) noexcept
+		{
+			for (std::size_t i = 0; i < kBlockNum; ++i)
+			{
+				_bits[i] &= other._bits[i];
+			}
 		}
 
 		inline bool empty() const noexcept
 		{
 			for (const auto& v : _bits)
 			{
-				if (v != 0ull) {
+				if (v != std::numeric_limits<BlockType>::min()) {
 					return false;
 				}
 			}
@@ -127,12 +187,23 @@ public:
 		{
 			for (const auto& v : _bits)
 			{
-				if (v != ~(0ull)) {
+				if (v != std::numeric_limits<BlockType>::max()) {
 					return false;
 				}
 			}
 
 			return true;
+		}
+
+		inline std::size_t count() const noexcept
+		{
+			std::size_t cnt = 0;
+			for (const auto& v : _bits)
+			{
+				cnt += POPCNT(v);
+			}
+
+			return cnt;
 		}
 
 		inline constexpr std::size_t size() const noexcept
@@ -182,9 +253,7 @@ public:
 	{
 	public:
 		
-		ConcurrentBitSet() : _bits() {
-			static_assert((N % kBitsPerBlock) == 0, "N must be a multiple of 64.");
-		}
+		ConcurrentBitSet() : _bits() {}
 
 		ConcurrentBitSet(const ConcurrentBitSet&) = delete;
 		ConcurrentBitSet& operator=(const ConcurrentBitSet&) = delete;
@@ -275,39 +344,6 @@ public:
 		std::array<AtomicBlockType, kNumBlocks> _bits;
 	};
 
-	template<std::size_t N>
-	class A
-	{
-	public:
-
-		inline void set(std::size_t n)
-		{
-			_bits |= (1ull << n);
-		}
-
-	private:
-
-		std::uint64_t _bits;
-	};
-
-	template<std::size_t N>
-	class B
-	{
-	public:
-
-		inline void set(std::size_t n);
-
-	private:
-
-		std::uint64_t _bits;
-	};
-
-	template<std::size_t N>
-	inline void B<N>::set(std::size_t n)
-	{
-		_bits |= (1ull << n);
-	}
-
 
 	void Test() override
 	{
@@ -317,6 +353,7 @@ public:
 		auto v = 0b00000000001001100011011000110111u;
 		std::println("std::countr_zero : {}", std::countr_zero(v));
 		std::println("std::countl_one : {}", std::countl_zero(v));
+		std::println("popcount : {}", POPCNT(908008));
 		
 		v = 1 << 6;
 		v = 0u;
@@ -326,6 +363,8 @@ public:
 		bits.set(65);           // 安全的边界检查
 
 		BitSet<256> bitset;
+		bitset.set_all();
+		bitset.reset_all();
 		bitset.set(3);
 		auto pos = bitset.find_first_one();
 		bitset.set(254);
