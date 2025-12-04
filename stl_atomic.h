@@ -7,6 +7,7 @@
 #include "Observer.h"
 
 #include "AtomicStruct.h"
+#include "stl_thread.h"
 
 
 class STL_Atomic : public Observer
@@ -320,11 +321,62 @@ public:
 
 	void Test() override
 	{
+        using namespace std::chrono_literals;
 		std::println("===== STL_Atomic Bgein =====");
 
-        relaxed_atomic_ufast64_t count;
-        ++count;
+        relaxed_atomic_ufast64_t relaxed_count;
+        std::atomic<std::uint_fast64_t> act_count;
 
+        constexpr uint32_t test_thread_count = 4;
+        constexpr uint32_t test_count = 10;//10000000;
+
+        {
+            std::vector<ThreadGuardJoin> sum_worker;
+            sum_worker.reserve(test_thread_count);
+
+            auto start_time = std::chrono::high_resolution_clock::now();
+            auto end_time = start_time;
+            for (size_t i = 0; i < test_thread_count; i++)
+            {
+                sum_worker.emplace_back(std::thread([&relaxed_count, &end_time]() {
+                    for (size_t n = 0; n < test_count; ++n)
+                        ++relaxed_count;
+
+                    if (relaxed_count == test_thread_count * test_count)
+                        end_time = std::chrono::high_resolution_clock::now();
+                    }));
+            }
+
+            std::this_thread::sleep_for(2s);
+            std::print("relaxed_atomic test {} count, thread num {}, use {}us.\n", relaxed_count.load(), test_thread_count,
+                std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count());
+        }
+        
+        {
+            std::vector<ThreadGuardJoin> sum_worker;
+            sum_worker.reserve(test_thread_count);
+
+            auto start_time = std::chrono::high_resolution_clock::now();
+            auto end_time = start_time;
+            for (size_t i = 0; i < test_thread_count; i++)
+            {
+                sum_worker.emplace_back(std::thread([&act_count, &end_time]() {
+                    for (size_t n = 0; n < test_count; ++n) {
+                        ++act_count;
+                        //act_count.fetch_add(1, std::memory_order_relaxed);
+                    }
+                        
+                    if (act_count == test_thread_count * test_count)
+                        end_time = std::chrono::high_resolution_clock::now();
+                    }));
+            }
+
+            std::this_thread::sleep_for(2s);
+            std::print("act_count test {} count, thread num {}, use {}us.\n", act_count.load(), test_thread_count,
+                std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count());
+        }
+
+        //  Ïà²î²»Ã÷ÏÔ£¬ºöÂÔ
 		std::println("===== STL_Atomic End =====");
 	}
 
