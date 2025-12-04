@@ -12,7 +12,7 @@ public:
 	{
 		int  key;
 		int  version;
-		int* data;
+		std::string message;
 	};
 
 	void Test() override
@@ -20,7 +20,7 @@ public:
 		std::print(" ===== STL_List Bgein =====\n");
 
 		std::list<node> node_list;
-		node_list.push_back({ 1 });
+		node_list.push_back({ 1, 0, "hi list"});
 
 		std::print(" ===== STL_List End =====\n");
 	}

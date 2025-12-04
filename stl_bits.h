@@ -130,26 +130,26 @@ public:
 
 		inline void set_all() noexcept
 		{
-			for (auto& v : _bits)
+			for (auto& word : _bits)
 			{
-				v = std::numeric_limits<BlockType>::max();
+				word = std::numeric_limits<BlockType>::max();
 			}
 		}
 
 		inline void reset_all() noexcept
 		{
-			for (auto& v : _bits)
+			for (auto& word : _bits)
 			{
-				v = 0ull;
+				word = std::numeric_limits<BlockType>::min();
 			}
 		}
 
 		//	反转所有位
 		inline void flip() noexcept
 		{
-			for (auto& v : _bits)
+			for (auto& word : _bits)
 			{
-				v = ~v;
+				word = ~word;
 			}
 		}
 
@@ -173,9 +173,9 @@ public:
 
 		inline bool empty() const noexcept
 		{
-			for (const auto& v : _bits)
+			for (const auto& word : _bits)
 			{
-				if (v != std::numeric_limits<BlockType>::min()) {
+				if (word != std::numeric_limits<BlockType>::min()) {
 					return false;
 				}
 			}
@@ -185,9 +185,9 @@ public:
 
 		inline bool full() const noexcept
 		{
-			for (const auto& v : _bits)
+			for (const auto& word : _bits)
 			{
-				if (v != std::numeric_limits<BlockType>::max()) {
+				if (word != std::numeric_limits<BlockType>::max()) {
 					return false;
 				}
 			}
@@ -198,9 +198,9 @@ public:
 		inline std::size_t count() const noexcept
 		{
 			std::size_t cnt = 0;
-			for (const auto& v : _bits)
+			for (const auto& word : _bits)
 			{
-				cnt += POPCNT(v);
+				cnt += POPCNT(word);
 			}
 
 			return cnt;
@@ -209,6 +209,18 @@ public:
 		inline constexpr std::size_t size() const noexcept
 		{ 
 			return N;
+		}
+
+		inline bool operator==(const BitSet<N>& other) const noexcept
+		{
+			for (std::size_t i = 0; i < kBlockNum; ++i)
+			{
+				if (_bits[i] != other._bits[i]) {
+					return false;
+				}
+			}
+
+			return true;
 		}
 
 		inline bool operator[](std::size_t n) const noexcept
@@ -365,6 +377,7 @@ public:
 		BitSet<256> bitset;
 		bitset.set_all();
 		bitset.reset_all();
+
 		bitset.set(3);
 		auto pos = bitset.find_first_one();
 		bitset.set(254);

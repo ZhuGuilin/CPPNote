@@ -147,16 +147,20 @@
     <ClCompile Include="Observer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AtomicStruct.h" />
+    <ClInclude Include="CacheLocality.h" />
     <ClInclude Include="concurrentqueue.h" />
-    <ClInclude Include="Coroutine.h" />
+    <ClInclude Include="stl_coroutine.h" />
     <ClInclude Include="CpuInfo.h" />
     <ClInclude Include="define.h" />
+    <ClInclude Include="IndexMemoryPool.h" />
     <ClInclude Include="NetWork.h" />
     <ClInclude Include="net_asio.h" />
     <ClInclude Include="Observer.h" />
     <ClInclude Include="MemoryPool.h" />
     <ClInclude Include="ringbuffer.h" />
     <ClInclude Include="SpinLock.h" />
+    <ClInclude Include="stl_atomic.h" />
     <ClInclude Include="stl_bind_invoke.h" />
     <ClInclude Include="stl_bits.h" />
     <ClInclude Include="stl_future.h" />

@@ -218,7 +218,7 @@ public:
 
 	//	也许好一些，不够稳定
 	template<class T>
-	using SpinQueue = LockQueue<T, MS_Lock::Spinlock>;
+	using SpinQueue = LockQueue<T, MS_Lock::Spinlock<>>;
 
 	//	无锁 环形队列 一写一读
 	template<class T>

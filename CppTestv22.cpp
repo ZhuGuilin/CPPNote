@@ -12,16 +12,17 @@
 #include "stl_shared_ptr.h"
 #include "stl_thread.h"
 #include "stl_string.h"
+#include "stl_atomic.h"
 
 #include "stl_bind_invoke.h"
 #include "stl_future.h"
 
-#include "Coroutine.h"
+#include "stl_coroutine.h"
 
 #include "MemoryPool.h"
+#include "IndexMemoryPool.h"
 #include "ringbuffer.h"
 #include "SpinLock.h"
-#include "Timer.h"
 
 #include "NetWork.h"
 #include "net_asio.h"
@@ -31,6 +32,8 @@
 
 namespace
 {
+	//	添加需要测试的对象
+
 	CpuInfo cpu_info;
 
 	STL_Bits stl_bits;
@@ -43,12 +46,13 @@ namespace
 	STL_List stl_list;
 	STL_Future stl_future;
 	MemoryPool memory_pool;
+	IndexMemoryPool__ index_memory_pool;
 	RingBuffer ring_buffer;
 	STL_Bind_Invoke stl_bind_invoke;
 	STL_Thread stl_thread;
 	STL_String stl_string;
+	STL_Atomic stl_atomic;
 	MS_Lock ms_lock;
-	TimeDevice time_device;
 	STL_Coroutine stl_coroutine;
 
 	NetWork network;

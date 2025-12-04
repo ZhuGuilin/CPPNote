@@ -36,7 +36,7 @@ public:
 	  {'9','5'}, {'9','6'}, {'9','7'}, {'9','8'}, {'9','9'}
 	};
 
-	//	高效无符号整数转字符串函数 返回字符串结束位置指针 copy from folly itoa.h
+	//	高效无符号整数转字符串函数 <!!! 返回字符串结束位置指针 !!!> copy from folly itoa.h
 	char* UInt32ToBufferLeft(std::uint32_t u, char* buffer) 
 	{
 		int digits;
@@ -310,8 +310,9 @@ public:
 		char buffer[Int32ToBufferOffset + 1];
 		std::print("Integer to string conversion: {}\n", Int32ToBuffer(-845014722, buffer));
 
-		//	结果是 \0开头，有问题!
-		std::print("Unsigned Integer to string conversion: {}\n", UInt32ToBufferLeft(3456789123u, buffer));
+		//	返回结束位置指针
+		auto left = UInt32ToBufferLeft(3456789123u, buffer);
+		std::print("Unsigned Integer to string conversion: {}\n", buffer);
 
 		std::print(" ===== STL_String End =====\n");
 	}

@@ -6,12 +6,13 @@
 #include "define.h"
 #include "Observer.h"
 
-inline void asm_volatile_pause() 
+
+inline void asm_volatile_pause() noexcept
 {
 #if defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64))
 	::_mm_pause();
 #elif defined(__i386__) || (defined(__x86_64__) || defined(_M_X64)) || \
-    (defined(__mips_isa_rev) && __mips_isa_rev > 1)
+(defined(__mips_isa_rev) && __mips_isa_rev > 1)
 	asm volatile("pause");
 #elif defined(__aarch64__)
 #if __ARM_ARCH >= 9
@@ -23,16 +24,10 @@ inline void asm_volatile_pause()
 	asm volatile("yield");
 #elif defined(__powerpc64__)
 	asm volatile("lwsync");
+#else
+	std::this_thread::yield();
 #endif
 }
-
-#if  (defined(__x86_64__) || defined(_M_X64))
-constexpr uint32_t MAX_PAUSE_COUNT{ 2000 };
-#elif defined(__arm__)
-constexpr uint32_t MAX_PAUSE_COUNT{ 4000 };
-#else
-constexpr uint32_t MAX_PAUSE_COUNT{ 8000 };
-#endif
 
 class MS_Lock : public Observer
 {
@@ -60,31 +55,65 @@ public:
 	 * they do in userspace.
 	 */
 
+	class SpinLockDefaultTraits
+	{
+	public:
+
+#if  (defined(__x86_64__) || defined(_M_X64))
+		static constexpr uint32_t MAX_PAUSE_COUNT{ 2000 };
+		static constexpr uint32_t MAX_YIELD_COUNT{ 4000 };
+#elif defined(__arm__)
+		static constexpr uint32_t MAX_PAUSE_COUNT{ 4000 };
+		static constexpr uint32_t MAX_YIELD_COUNT{ 8000 };
+#else
+		static constexpr uint32_t MAX_PAUSE_COUNT{ 8000 };
+		static constexpr uint32_t MAX_YIELD_COUNT{ 16000 };
+#endif
+
+		static constexpr std::chrono::microseconds SLEEP_US{ 200 };
+	};
+
+	template <typename Traits = SpinLockDefaultTraits>
 	class Spinlock
 	{
 	public:
 
-		void lock() noexcept {
-			uint32_t count = 0;
+		constexpr Spinlock() noexcept = default;
+		~Spinlock() noexcept = default;
+
+		Spinlock(const Spinlock&) = delete;
+		Spinlock& operator=(const Spinlock&) = delete;
+		Spinlock(Spinlock&&) = delete;
+		Spinlock& operator=(Spinlock&&) = delete;
+
+		void lock() noexcept
+		{
+			std::uint_fast32_t count = 0;
 			while (_flag.test_and_set(std::memory_order_acquire)) {
-				if (count++ < MAX_PAUSE_COUNT) {
+				count++;
+				if (count < Traits::MAX_PAUSE_COUNT) {
 					asm_volatile_pause();
 				}
-				else {
+				else if (count < Traits::MAX_YIELD_COUNT) {
 #if defined(__arm__) && !(__ARM_ARCH < 7)
 					asm volatile("yield" ::: "memory");
 #else
 					std::this_thread::yield();
 #endif
 				}
+				else {
+					std::this_thread::sleep_for(Traits::SLEEP_US);
+				}
 			}
 		}
 
-		void unlock() noexcept {
+		void unlock() noexcept
+		{
 			_flag.clear(std::memory_order_release);
 		}
 
-		bool trylock() noexcept {
+		bool trylock() noexcept
+		{
 			return !_flag.test_and_set(std::memory_order_acquire);
 		}
 
@@ -126,7 +155,7 @@ public:
 		std::print(" ===== SpinLock Bgein =====\n");
 
 		Spinlock slock;
-		std::lock_guard<Spinlock> lock(slock);
+		std::lock_guard<Spinlock<>> lock(slock);
 
 		std::print(" ===== SpinLock End =====\n");
 	}

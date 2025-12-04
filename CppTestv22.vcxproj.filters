@@ -65,7 +65,7 @@
     <ClInclude Include="stl_future.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Coroutine.h">
+    <ClInclude Include="stl_coroutine.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="MemoryPool.h">
@@ -93,6 +93,18 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="stl_bits.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="IndexMemoryPool.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="AtomicStruct.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CacheLocality.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="stl_atomic.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
