@@ -1,35 +1,31 @@
 #pragma once
 
 #include <atomic>
-#include <Bits.h>
+
 
 namespace detail 
 {
 	template <size_t>
 	struct AtomicStructRaw;
 	template <>
-	struct AtomicStructRaw<0> {
-		using type = uint8_t;
-	};
+	struct AtomicStructRaw<0> { using type = uint8_t; };
+
 	template <>
-	struct AtomicStructRaw<1> {
-		using type = uint16_t;
-	};
+	struct AtomicStructRaw<1> { using type = uint16_t; };
+
 	template <>
-	struct AtomicStructRaw<2> {
-		using type = uint32_t;
-	};
+	struct AtomicStructRaw<2> { using type = uint32_t; };
+
 	template <>
-	struct AtomicStructRaw<3> {
-		using type = uint64_t;
-	};
+	struct AtomicStructRaw<3> { using type = uint64_t; };
 }
 
 template <typename T>
 using _t = typename T::type;
 
 template <typename T, template <typename> class Atom = std::atomic>
-class AtomicStruct {
+class AtomicStruct 
+{
 private:
     using Raw = _t<detail::AtomicStructRaw<std::countr_zero(sizeof(T))>>;
 
@@ -41,7 +37,8 @@ private:
 
     Atom<Raw> data;
 
-    static Raw encode(T v) noexcept {
+    static Raw encode(T v) noexcept 
+    {
         // we expect the compiler to optimize away the memcpy, but without
         // it we would violate strict aliasing rules
         Raw d = 0;
@@ -49,7 +46,8 @@ private:
         return d;
     }
 
-    static T decode(Raw d) noexcept {
+    static T decode(Raw d) noexcept 
+    {
         T v;
         ::memcpy(static_cast<void*>(&v), &d, sizeof(T));
         return v;
@@ -67,15 +65,20 @@ public:
     bool is_lock_free() const noexcept { return data.is_lock_free(); }
 
     bool compare_exchange_strong(
-        T& v0, T v1, std::memory_order mo = std::memory_order_seq_cst) noexcept {
+        T& v0,
+        T v1,
+        std::memory_order mo = std::memory_order_seq_cst) noexcept 
+    {
         return compare_exchange_strong(
             v0, v1, mo, default_failure_memory_order(mo));
     }
+
     bool compare_exchange_strong(
         T& v0,
         T v1,
         std::memory_order success,
-        std::memory_order failure) noexcept {
+        std::memory_order failure) noexcept 
+    {
         Raw d0 = encode(v0);
         bool rv = data.compare_exchange_strong(d0, encode(v1), success, failure);
         if (!rv) {
@@ -85,15 +88,20 @@ public:
     }
 
     bool compare_exchange_weak(
-        T& v0, T v1, std::memory_order mo = std::memory_order_seq_cst) noexcept {
+        T& v0,
+        T v1,
+        std::memory_order mo = std::memory_order_seq_cst) noexcept 
+    {
         return compare_exchange_weak(
             v0, v1, mo, default_failure_memory_order(mo));
     }
+
     bool compare_exchange_weak(
         T& v0,
         T v1,
         std::memory_order success,
-        std::memory_order failure) noexcept {
+        std::memory_order failure) noexcept 
+    {
         Raw d0 = encode(v0);
         bool rv = data.compare_exchange_weak(d0, encode(v1), success, failure);
         if (!rv) {
@@ -102,19 +110,22 @@ public:
         return rv;
     }
 
-    T exchange(T v, std::memory_order mo = std::memory_order_seq_cst) noexcept {
+    T exchange(T v, std::memory_order mo = std::memory_order_seq_cst) noexcept 
+    {
         return decode(data.exchange(encode(v), mo));
     }
 
     /* implicit */ operator T() const noexcept { return decode(data); }
 
-    T load(std::memory_order mo = std::memory_order_seq_cst) const noexcept {
+    T load(std::memory_order mo = std::memory_order_seq_cst) const noexcept 
+    {
         return decode(data.load(mo));
     }
 
     T operator=(T v) noexcept { return decode(data = encode(v)); }
 
-    void store(T v, std::memory_order mo = std::memory_order_seq_cst) noexcept {
+    void store(T v, std::memory_order mo = std::memory_order_seq_cst) noexcept 
+    {
         data.store(encode(v), mo);
     }
 };
