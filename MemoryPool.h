@@ -8,16 +8,6 @@
 #include "SpinLock.h"
 #include "Observer.h"
 
-#define USE_MEMORY_POOL 0
-#define SPIN_LOCK 1
-
-#if SPIN_LOCK
-//typedef MS_Lock::Spinlock LockType;
-typedef MS_Lock::Spinlock2 LockType;
-#else
-typedef std::mutex LockType;
-#endif
-
 constexpr uint32_t BLOCK_SIZE = 128;
 
 class MemoryPool : public Observer
@@ -148,93 +138,158 @@ public:
 	};
 
 	//	链表式简单内存池实现
-	template <class T, uint32_t N = BLOCK_SIZE>
-	class SimplePool
+	template<class T, std::size_t BLOCK_SIZE = 128, bool is_trivial = std::is_trivial_v<T>>
+	class SimpleMemoryPool
 	{
 	public:
-		
-		SimplePool() : _head(nullptr)
-		{
-			if (!expand())
-			{
-				std::print("MemoryPool::SimplePool::expand() failed!\n");
-				throw std::bad_alloc();
-			}
-		}
 
-		~SimplePool()
+		SimpleMemoryPool() : _head(nullptr)
 		{
-			std::lock_guard<LockType> lock(_lock);
-			for (const auto& block : _blocks) 
-			{
+			expand();
+		};
+
+		~SimpleMemoryPool()
+		{
+			for (const auto& block : _blocks) {
 				::operator delete(block, std::align_val_t{ alignof(MemoryNode) });
 			}
 		}
 
+		SimpleMemoryPool(SimpleMemoryPool&& other) noexcept
+			: _head(other._head.load(std::memory_order_acquire))
+			, _blocks(std::move(other._blocks))
+		{
+			other._head.store(nullptr, std::memory_order_release);
+			other._blocks.clear();
+		}
+
+		SimpleMemoryPool(const SimpleMemoryPool&) = delete;
+		SimpleMemoryPool& operator=(const SimpleMemoryPool&) = delete;
+		SimpleMemoryPool& operator=(SimpleMemoryPool&& other) = delete;
+
 		template<typename... Args>
-		T* malloc(Args&&... args)
+		[[nodiscard]] T* Alloc(Args&&... args)
 		{
-			std::lock_guard<LockType> lock(_lock);
-			if (nullptr == _head && !expand()) {
-				std::print("MemoryPool::SimplePool::malloc() failed!\n");
-				return nullptr;
-			}
+			MemoryNode* node;
+			do {
+				node = _head.load(std::memory_order_acquire);
+				if (!node) [[unlikely]] {
+					expand();
+					node = _head.load(std::memory_order_acquire);
+				}
+			} while (!_head.compare_exchange_weak(
+				node,
+				node->next.load(std::memory_order_relaxed),
+				std::memory_order_acq_rel,
+				std::memory_order_acquire));
 
-			MemoryNode* node = _head;
-			try {
-				T* p = new (node->data) T(std::forward<Args>(args)...);
-				_head = _head->next;
-				return p;
-			}
-			catch (...) {
-				return nullptr;
-			}
+			new (node->data) T(std::forward<Args>(args)...);
+			return reinterpret_cast<T*>(node->data);
 		}
 
-		void free(T* p) noexcept
+		[[nodiscard]] T* Alloc(T&& o)
 		{
-			std::lock_guard<LockType> lock(_lock);
-			MemoryNode* node = reinterpret_cast<MemoryNode*>(reinterpret_cast<Byte*>(p) - offsetof(MemoryNode, data));
-			reinterpret_cast<T*>(node->data)->~T();
-			node->next = _head;
-			_head = node;
+			MemoryNode* node;
+			do {
+				node = _head.load(std::memory_order_acquire);
+				if (!node) [[unlikely]] {
+					expand();
+					node = _head.load(std::memory_order_acquire);
+				}
+			} while (!_head.compare_exchange_weak(
+				node,
+				node->next.load(std::memory_order_relaxed),
+				std::memory_order_acq_rel,
+				std::memory_order_acquire));
+
+			new (node->data) T(std::forward<T>(o));
+			return reinterpret_cast<T*>(node->data);
 		}
 
-		SimplePool(const SimplePool&) = delete;
-		SimplePool& operator=(const SimplePool&) = delete;
+		[[nodiscard]] T* Alloc()
+		{
+			MemoryNode* node;
+			do {
+				node = _head.load(std::memory_order_acquire);
+				if (!node) [[unlikely]] {
+					expand();
+					node = _head.load(std::memory_order_acquire);
+				}
+			} while (!_head.compare_exchange_weak(
+				node,
+				node->next.load(std::memory_order_relaxed),
+				std::memory_order_acq_rel,
+				std::memory_order_acquire));
+
+			if constexpr (!is_trivial) {
+				new (node->data) T();
+			}
+			return reinterpret_cast<T*>(node->data);
+		}
+
+		void Recycle(T* o)
+		{
+			if (!o) [[unlikely]] {
+				return;
+			}
+
+			if constexpr (!is_trivial) {
+				o->~T();
+			}
+
+			MemoryNode* node = reinterpret_cast<MemoryNode*>(
+				reinterpret_cast<std::byte*>(o) - offsetof(MemoryNode, data));
+			MemoryNode* expected = _head.load(std::memory_order_acquire);
+			do {
+				node->next.store(expected, std::memory_order_relaxed);
+			} while (!_head.compare_exchange_weak(
+				expected,
+				node,
+				std::memory_order_acq_rel,
+				std::memory_order_acquire));
+		}
+
+		std::size_t Capacity() const noexcept {
+			return _blocks.size() * BLOCK_SIZE;
+		}
 
 	private:
 
-		struct MemoryNode
-		{
-			alignas(alignof(T)) Byte data[sizeof(T)];
-			MemoryNode* next = nullptr;
+		struct MemoryNode {
+			alignas(T) std::byte data[sizeof(T)];
+			std::atomic<MemoryNode*> next{ nullptr };
 		};
-		static_assert(offsetof(SimplePool::MemoryNode, data) == 0, "MemoryNode.data must be the first member");
+		static_assert(sizeof(T) > 0, "T must be a complete type");
+		static_assert(offsetof(SimpleMemoryPool::MemoryNode, data) == 0,
+			"MemoryNode.data must be the first member");
 
-		inline bool expand()
+		void expand()
 		{
-			const uint32_t size = std::max(BLOCK_SIZE, N);
 			MemoryNode* block = static_cast<MemoryNode*>(::operator new(
-				sizeof(MemoryNode) * size, std::align_val_t{ alignof(MemoryNode) }));
-			if (nullptr == block)
-				return false;
-
-			_blocks.push_back(block);
+				sizeof(MemoryNode) * BLOCK_SIZE, std::align_val_t{ alignof(MemoryNode) }));
+			if (!block) {
+				throw std::bad_alloc();
+				return;
+			}
 
 			MemoryNode* node = block;
-			for (uint32_t i = 1; i < size; i++)
-			{
-				node->next = block + i;
-				node = node->next;
+			for (std::size_t i = 1; i < BLOCK_SIZE; i++) {
+				node->next.store(block + i, std::memory_order_relaxed);
+				node = block + i;
 			}
-			node->next = _head;
-			_head = block;
-			return true;
+			_blocks.push_back(block);
+
+			MemoryNode* expected = _head.load(std::memory_order_acquire);
+			do {
+				node->next.store(expected, std::memory_order_relaxed);
+			} while (!_head.compare_exchange_weak(
+				expected,
+				block,
+				std::memory_order_acq_rel,
+				std::memory_order_acquire));
 		}
 
-		MemoryNode* _head;
-		LockType _lock;
+		std::atomic<MemoryNode*> _head;
 		std::vector<MemoryNode*> _blocks;
 	};
 
@@ -341,7 +396,7 @@ public:
 		}
 		
 		//	使用链表内存池分配内存
-		SimplePool<MyStruct> pool;
+		SimpleMemoryPool<MyStruct> pool;
 		std::print("sizeof std::string : {}.\n", sizeof(std::string));
 		std::print("sizeof MyStruct : {}.\n", sizeof(MyStruct));
 		std::print("alignof MyStruct : {}.\n", alignof(MyStruct));
@@ -358,15 +413,15 @@ public:
 				{
 					for (int j = 0; j < 2000000; j++)
 					{
-#if USE_MEMORY_POOL
-						MyStruct* p = pool.malloc(i, j);
+#if 1
+						MyStruct* p = pool.Alloc(i, j);
 						if (nullptr == p)
 						{
 							std::print("malloc failed! \n");
 							return;
 						}
 						total += (p->value & 0xffff);
-						pool.free(p);
+						pool.Recycle(p);
 #else
 						MyStruct* p = new MyStruct(i, j);
 						if (nullptr == p)
@@ -385,7 +440,7 @@ public:
 
 		auto end = std::chrono::high_resolution_clock::now();
 #if USE_MEMORY_POOL
-		std::print("MemoryPool 内存池测试 + {}, 共耗时 : {}ms, Total : {}.\n", SPIN_LOCK ? "SpinLock" : "Mutex",
+		std::print("MemoryPool 内存池测试 + {}, 共耗时 : {}ms, Total : {}.\n", "Automic",
 			std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count(), total);
 		//	使用 Spinlock 耗时 1000 - 1200 ms 左右
 		//	使用 Spinlock2 耗时 600 - 800 ms 左右

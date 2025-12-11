@@ -27,6 +27,7 @@ template <typename T, template <typename> class Atom = std::atomic>
 class AtomicStruct 
 {
 private:
+
     using Raw = _t<detail::AtomicStructRaw<std::countr_zero(sizeof(T))>>;
 
     static_assert(alignof(T) <= alignof(Raw), "underlying type is under-aligned");

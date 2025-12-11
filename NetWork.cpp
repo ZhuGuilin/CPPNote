@@ -179,11 +179,11 @@ NetWork::Acceptor::~Acceptor()
 
 void NetWork::Acceptor::AsyncAccept()
 {
-	auto client = ::WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAGS);
+	SOCKET client = ::WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAGS);
 	DWORD dwRecvNumBytes = 0;
 	std::memset(_opt.get(), 0, sizeof(OVERLAPPED));
 	_opt->socket = client;
-	auto ret = reinterpret_cast<LPFN_ACCEPTEX>(_lpfnAcceptEx)(
+	BOOL ret = reinterpret_cast<LPFN_ACCEPTEX>(_lpfnAcceptEx)(
 				_listener,
 				client,
 				_readBuffer.data(),
@@ -193,7 +193,7 @@ void NetWork::Acceptor::AsyncAccept()
 				&dwRecvNumBytes,
 				_opt.get());
 
-	auto last_error = ::WSAGetLastError();
+	DWORD last_error = ::WSAGetLastError();
 	if (!ret && last_error != WSA_IO_PENDING)
 	{
 		std::print("NetWork::Socket::AsyncAccept => AcceptEx() failed! error : {}, client socket : {}.\n",
