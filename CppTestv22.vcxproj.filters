@@ -95,13 +95,7 @@
     <ClInclude Include="stl_bits.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="IndexMemoryPool.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="AtomicStruct.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="CacheLocality.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="stl_atomic.h">

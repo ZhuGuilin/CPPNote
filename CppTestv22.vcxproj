@@ -148,12 +148,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AtomicStruct.h" />
-    <ClInclude Include="CacheLocality.h" />
     <ClInclude Include="concurrentqueue.h" />
     <ClInclude Include="stl_coroutine.h" />
     <ClInclude Include="CpuInfo.h" />
     <ClInclude Include="define.h" />
-    <ClInclude Include="IndexMemoryPool.h" />
     <ClInclude Include="NetWork.h" />
     <ClInclude Include="net_asio.h" />
     <ClInclude Include="Observer.h" />

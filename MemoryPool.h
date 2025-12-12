@@ -265,6 +265,11 @@ public:
 
 		void expand()
 		{
+			std::lock_guard lock(_mutex);
+			if (_head.load(std::memory_order_acquire)) {
+				return;
+			}
+
 			MemoryNode* block = static_cast<MemoryNode*>(::operator new(
 				sizeof(MemoryNode) * BLOCK_SIZE, std::align_val_t{ alignof(MemoryNode) }));
 			if (!block) {
@@ -291,6 +296,7 @@ public:
 
 		std::atomic<MemoryNode*> _head;
 		std::vector<MemoryNode*> _blocks;
+		std::mutex _mutex;
 	};
 
 	struct alignas(std::max_align_t) MyStruct
