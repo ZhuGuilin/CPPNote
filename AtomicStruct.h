@@ -70,8 +70,7 @@ public:
         T v1,
         std::memory_order mo = std::memory_order_seq_cst) noexcept 
     {
-        return compare_exchange_strong(
-            v0, v1, mo, default_failure_memory_order(mo));
+        return compare_exchange_strong(v0, v1, mo, default_failure_memory_order(mo));
     }
 
     bool compare_exchange_strong(
@@ -93,8 +92,7 @@ public:
         T v1,
         std::memory_order mo = std::memory_order_seq_cst) noexcept 
     {
-        return compare_exchange_weak(
-            v0, v1, mo, default_failure_memory_order(mo));
+        return compare_exchange_weak(v0, v1, mo, default_failure_memory_order(mo));
     }
 
     bool compare_exchange_weak(

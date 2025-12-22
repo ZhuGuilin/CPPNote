@@ -6,6 +6,8 @@
 //#include <flat_map>
 #include "Observer.h"
 
+
+
 class STL_Map : public Observer
 {
 public:
@@ -22,7 +24,7 @@ public:
 		std::unordered_map<std::string, std::string> hashmap;
 		hashmap.insert({ "123", "lkdfjlskj33478798" });
 
-		//	windows还未支持？
+		//	std::flat_map 在 windows还未支持？无法引入<flat_map>头文件
 		//	频繁查找和遍历为主,内部实现与std::map的红黑树不一样，是连续内存存储
 		//  频繁插入或删除性能较慢，这时优先选择std::unordered_map或者std::map
 		//  查找速度比标准关联容器std::map更快。
