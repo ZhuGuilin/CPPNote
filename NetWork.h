@@ -278,7 +278,7 @@ public:
 	{
 	public:
 
-		explicit Service();
+		Service();
 		~Service();
 
 		void Post(Operation* opt) noexcept;

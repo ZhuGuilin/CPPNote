@@ -1,17 +1,62 @@
 #pragma once
 
-#include <print>
+//#include <print>
+//#include <flat_map>
+//#include "Observer.h"
+#include "MemoryPool.h"
+
 #include <map>
 #include <unordered_map>
-//#include <flat_map>
-#include "Observer.h"
 
 
+template<typename Key, typename Value, typename Hash = std::hash<Key>>
+class ConcurrentHashMap {
+public:
+
+
+
+private:
+
+	static constexpr float kDefaultLoadFactor = 1.05f;
+
+	class alignas(64) Segment {
+	public:
+
+		Segment() {}
+		~Segment() = default;
+		Segment(const Segment&) = delete;
+		Segment(Segment&&) = delete;
+		Segment& operator=(const Segment&) = delete;
+		Segment& operator=(Segment&&) = delete;
+
+	private:
+
+		struct Node {
+			using value_type = std::pair<const Key, Value>;
+
+			explicit Node(const Node& other) : item(other.item) {}
+
+			template <typename Arg, typename... Args>
+			Node(Arg&& k, Args&&... args)
+				: item(std::piecewise_construct,
+					std::forward_as_tuple(std::forward<Arg>(k)),
+					std::forward_as_tuple(std::forward<Args>(args)...)) {
+			}
+
+			std::atomic<Node*> next{ nullptr };
+			value_type item;
+		};
+
+		std::mutex	_mutex;
+		std::atomic<std::uint64_t> _size;
+		const std::uint64_t _capacity;
+		MemoryPool::SimpleMemoryPool<Node> _pool;
+	};
+};
 
 class STL_Map : public Observer
 {
 public:
-
 	
 
 	void Test() override

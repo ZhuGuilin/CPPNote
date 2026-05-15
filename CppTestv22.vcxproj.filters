@@ -101,5 +101,8 @@
     <ClInclude Include="stl_atomic.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="PerfTimer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
