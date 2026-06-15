@@ -8,6 +8,8 @@
 #include <map>
 #include <unordered_map>
 
+#include "Flatmap.h"
+
 
 template<typename Key, typename Value, typename Hash = std::hash<Key>>
 class ConcurrentHashMap {
@@ -83,6 +85,18 @@ public:
 		//	插入和删除操作比标准关联容器慢（尤其是对于不可移动类型）
 		//std::flat_map<int, int> flatmap;
 		//flatmap.insert({ 2, 35 });
+
+		CxxNote::FlatMap<std::string, std::string> flatmap;
+		flatmap.insert({ "123", "lkdfjlskj33478798" });
+		flatmap.insert({ "678", "sdfsdlkfsjkdhf333" });
+		auto it = flatmap.insert({ "125", "0011225wwwrtteees" });
+		it = flatmap.emplace("105", "ioioioioioioioi");
+
+		auto it1 = flatmap.find("125");
+		it1 = flatmap.find("890");
+
+		flatmap.erase("678");
+		it1 = flatmap.find("678");
 
 		std::print(" ===== STL_Map End =====\n");
 	}

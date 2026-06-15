@@ -600,17 +600,65 @@ void NetWork::Service::run()
 	}
 }
 
+// 获取第一个非回环IPv4地址
+std::string GetPrimaryIPv4() {
+	WSADATA wsaData;
+	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+		return "";
+	}
+
+	SOCKET sock = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sock == INVALID_SOCKET) {
+		WSACleanup();
+		return "";
+	}
+
+	sockaddr_in serv;
+	memset(&serv, 0, sizeof(serv));
+	serv.sin_family = AF_INET;
+	serv.sin_port = htons(53);
+
+	// 使用 InetPton 替代 inet_addr
+	if (InetPtonA(AF_INET, "8.8.8.8", &serv.sin_addr) != 1) {
+		// 转换失败，可以尝试备用地址
+		if (InetPtonA(AF_INET, "1.1.1.1", &serv.sin_addr) != 1) {
+			closesocket(sock);
+			WSACleanup();
+			return "";
+		}
+	}
+
+	std::string localIP = "";
+
+	if (connect(sock, (sockaddr*)&serv, sizeof(serv)) != SOCKET_ERROR) {
+		sockaddr_in name;
+		int nameLen = sizeof(name);
+		if (getsockname(sock, (sockaddr*)&name, &nameLen) != SOCKET_ERROR) {
+			char ipStr[INET_ADDRSTRLEN];
+			if (InetNtopA(AF_INET, &(name.sin_addr), ipStr, sizeof(ipStr))) {
+				localIP = ipStr;
+			}
+		}
+	}
+
+	closesocket(sock);
+	WSACleanup();
+
+	return localIP;
+}
+
 void NetWork::Test()
 {
 
 	std::print(" ===== NetWork Bgein =====\n");
 
+	std::print("ipv4 : {}.\n", GetPrimaryIPv4());
 	std::print("std::error_code sizeof : {}.\n", sizeof(std::error_code));
 	std::print("Acceptor sizeof : {}.\n", sizeof(Acceptor));
 	std::print("TcpSocket sizeof : {}.\n", sizeof(TcpSocket));
 	std::print("Operation sizeof : {}.\n", sizeof(Operation));
 	std::print("Service sizeof : {}.\n", sizeof(Service));
-
+	
 	std::unordered_map<SOCKET, std::shared_ptr<NetWork::TcpSocket>> socket_map;
 	socket_map.reserve(4);
 	SOCKET s_del = INVALID_SOCKET;

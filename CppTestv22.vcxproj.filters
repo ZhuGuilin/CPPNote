@@ -104,5 +104,11 @@
     <ClInclude Include="PerfTimer.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="filesystem.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Flatmap.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
